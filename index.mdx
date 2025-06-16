@@ -1,0 +1,21 @@
+---
+title: Introduction
+description: "Welcome to the Pickaxe documentation."
+---
+
+Pickaxe is a library for building effective agents, built on top of [Hatchet](https://github.com/hatchet-dev/hatchet). Pickaxe agents are:
+
+- **Durable by default** - all tools called by the agent are sent through a durable message boundary
+- **Distributed by default** - all agents and tools run across a fleet of machines, where scheduling is handled gracefully by Hatchet
+- **Agnostic to execution pattern** - Pickaxe agents can be written as loops, scatter/gather workflows, or directed acyclic graphs
+- **Simple to scale** - Pickaxe agents allow simple configuration for retries, rate limiting, concurrency control, and much more
+
+## Get started
+
+See the [quickstart documentation](./quickstart).
+
+## Concepts
+
+- [**Agents**](./concepts/agents) - an agent is simply a loop that calls **tools**
+- [**Toolbox**](./concepts/toolbox) - a collection of tools that are available to an agent
+- [**Tools**](./concepts/tools) - a tool is a function available to an agent. A tool can call other tools, agents, or other functions.

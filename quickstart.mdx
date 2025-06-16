@@ -1,0 +1,50 @@
+---
+title: "Quickstart"
+description: "Learn how to build an agent in under 2 minutes."
+---
+
+### Install the Pickaxe CLI
+
+The Pickaxe CLI is a command line interface for quickly getting started with Pickaxe by scaffolding a new agent project:
+
+```sh
+pnpm i -g @hatchet-dev/pickaxe-cli
+pickaxe create my-agent
+cd my-agent
+```
+
+### Generate a Hatchet API token
+
+Pickaxe requires a [Hatchet](https://hatchet.run) API token for orchestration. You can generate a Hatchet token by signing up for a free account on [Hatchet Cloud](https://cloud.onhatchet.run) or following instructions for [self-hosting Hatchet](https://docs.hatchet.run/self-hosting).
+
+Set the API token in your environment:
+
+```sh
+export HATCHET_CLIENT_TOKEN=<my-token>
+```
+
+### Set your LLM API key
+
+Set your LLM API key in your environment:
+
+```sh
+export OPENAI_API_KEY=<your-api-key>
+```
+
+### Run your agent
+
+The default pickaxe agent is a simple deep research agent that can be triggered to perform a deep research task. It uses the OpenAI API to generate responses and the Hatchet API to orchestrate the agent's execution. For a full walkthrough of this agent, see the [deep research example](./examples/deep-research).
+
+To start your agent, you can run the following:
+
+```sh
+pnpm run dev
+```
+
+To trigger the agent, you can run:
+
+```sh
+pnpm run trigger
+```
+
+This will prompt you for a deep research prompt and then execute the agent.

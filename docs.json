@@ -1,0 +1,90 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "willow",
+  "name": "Pickaxe | Docs",
+  "colors": {
+    "primary": "#E64327",
+    "light": "#E64327",
+    "dark": "#E64327"
+  },
+  "favicon": "/favicon.ico",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": ["index", "quickstart"]
+          },
+          {
+            "group": "Concepts",
+            "pages": ["concepts/agents", "concepts/toolbox", "concepts/tools"]
+          },
+          {
+            "group": "Development",
+            "pages": []
+          },
+          {
+            "group": "Patterns",
+            "pages": []
+          },
+          {
+            "group": "Deployment",
+            "pages": []
+          },
+          {
+            "group": "API Reference",
+            "pages": ["api-reference/agent", "api-reference/tool"]
+          },
+          {
+            "group": "CLI Reference",
+            "pages": ["cli/cli"]
+          }
+        ]
+      },
+      {
+        "tab": "Examples",
+        "groups": [
+          {
+            "group": "Examples",
+            "pages": ["examples/deep-research"]
+          }
+        ]
+      }
+    ],
+    "global": {
+      "anchors": [
+        {
+          "anchor": "Community",
+          "href": "https://hatchet.run/discord",
+          "icon": "discord"
+        },
+        {
+          "anchor": "Hatchet",
+          "href": "https://hatchet.run",
+          "icon": "axe"
+        }
+      ]
+    }
+  },
+  "logo": {
+    "light": "/logo/pickaxe_light.png",
+    "dark": "/logo/pickaxe_dark.png"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "Support",
+        "href": "https://hatchet.run/discord"
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "x": "https://twitter.com/hatchet_dev",
+      "github": "https://github.com/hatchet-dev",
+      "linkedin": "https://www.linkedin.com/company/hatchet-run/"
+    }
+  }
+}
