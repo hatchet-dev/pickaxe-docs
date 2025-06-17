@@ -1,0 +1,169 @@
+---
+title: "pickaxe.toolbox"
+description: "API reference for pickaxe.toolbox."
+icon: "code"
+---
+
+The `pickaxe.toolbox` method creates a new toolbox that contains a collection of tools for agents to use with AI-powered selection.
+
+## Quick Reference
+
+- **Tool selection methods**: [`pick()`](#pickctx-options), [`pickAndRun()`](#pickandrunctl-options)
+- **Utility methods**: [`assertExhaustive()`](#assertexhaustiveresult), [`getTools()`](#gettools)
+
+## Usage Example
+
+```typescript
+import { pickaxe } from "@/pickaxe-client";
+import z from "zod";
+// Import your tools
+import { myTool, anotherTool } from "@/tools";
+
+export const myToolbox = pickaxe.toolbox({
+  tools: [
+    myTool,
+    anotherTool,
+    // Add more tools here
+  ],
+});
+
+export const myAgent = pickaxe.agent({
+  name: "my-agent",
+  executionTimeout: "15m",
+  inputSchema: z.object({ message: z.string() }),
+  outputSchema: z.object({ message: z.string() }),
+  description: "An agent that uses tools from a toolbox",
+  fn: async (input, ctx) => {
+    const result = await myToolbox.pickAndRun(ctx, {
+      prompt: input.message,
+    });
+
+    switch (result.name) {
+      case "myTool":
+        return {
+          message: `Tool result: ${result.output}`,
+        };
+      case "anotherTool":
+        return {
+          message: `Another result: ${result.output}`,
+        };
+      default:
+        return myToolbox.assertExhaustive(result);
+    }
+  },
+});
+
+export default [myAgent, myToolbox];
+```
+
+## Parameters
+
+| Parameter | Type                                          | Required | Description                                                                               |
+| --------- | --------------------------------------------- | -------- | ----------------------------------------------------------------------------------------- |
+| `tools`   | [`ToolDeclaration[]`](#tooldeclaration-array) | Yes      | Array of tool declarations to register on the toolbox. These tools can be selected by AI. |
+
+### ToolDeclaration Array
+
+The `tools` parameter accepts an array of [`ToolDeclaration`](/api-reference/tool) objects created with [`pickaxe.tool()`](/api-reference/tool).
+
+## Returns
+
+The `pickaxe.toolbox` method returns a `Toolbox<T>` object with the following [properties](#properties) and [methods](#methods):
+
+### Properties
+
+| Property       | Type                        | Description                                                                          |
+| -------------- | --------------------------- | ------------------------------------------------------------------------------------ |
+| `toolSetForAI` | `ToolSet`                   | AI-ready toolset used internally by language models for tool selection               |
+| `register`     | `TaskWorkflowDeclaration[]` | All user-supplied tool declarations plus internal workflows for Hatchet registration |
+
+### Methods
+
+#### `pick(ctx, options)`
+
+Uses the language model to choose up to `maxTools` tools from this toolbox that best satisfy the provided prompt. Only tool selection is performed—no execution happens.
+
+**Parameters:**
+
+- `ctx`: `DurableContext<any> | Context<any>` - Durable context provided by the Hatchet runtime
+- `options`: [`PickInput`](#pickinput-type) - Configuration for tool selection
+
+**Returns:** `Promise<Array<{ name: string, input: any }>>` - Array containing chosen tool names with generated input arguments
+
+#### `pickAndRun(ctx, options)`
+
+Convenience method that first runs [`pick()`](#pickctx-options) and then immediately executes the chosen tool(s).
+
+**Type Overloads:**
+
+- When `maxTools` is omitted or `1`: Returns `Promise<ToolResultMap<T>>`
+- When `maxTools` > 1: Returns `Promise<ToolResultMap<T>[]>`
+
+**Parameters:**
+
+- `ctx`: `DurableContext<any> | Context<any>` - Durable context provided by the Hatchet runtime
+- `options`: [`PickInput`](#pickinput-type) - Configuration for tool selection and execution
+
+**Returns:** `Promise<ToolResultMap<T> | ToolResultMap<T>[]>` - Single tool result or array of results depending on `maxTools`
+
+#### `assertExhaustive(result)`
+
+Helper method to assert that toolbox results are exhaustive for handling in switch statements. Use this in the `default` case to ensure all tool results are handled.
+
+**Parameters:**
+
+- `result`: `never` - The result to assert is exhaustive
+
+**Returns:** `never` - This method always throws
+
+**Throws:** Error if the result is not exhaustive, indicating an unhandled tool result
+
+#### `getTools()`
+
+Gets the original tool declarations used internally by the pick-tool workflow.
+
+**Returns:** `T` - The array of tool declarations provided when creating the toolbox
+
+### PickInput Type
+
+| Property   | Type     | Required | Description                                                      |
+| ---------- | -------- | -------- | ---------------------------------------------------------------- |
+| `prompt`   | `string` | Yes      | Natural-language description of what the caller wants to achieve |
+| `maxTools` | `number` | No       | Maximum number of tools to select and execute. Default: 1        |
+
+### ToolResultMap Type
+
+The `ToolResultMap<T>` is a discriminated union type that provides type-safe access to tool results:
+
+```typescript
+type ToolResultMap<T> = {
+  name: string; // The name of the executed tool
+  output: any; // The output from the tool execution
+  args: any; // The input arguments that were passed to the tool
+};
+```
+
+This allows you to use switch statements with full TypeScript type checking:
+
+```typescript
+const result = await toolbox.pickAndRun(ctx, { prompt: "Do something" });
+
+switch (result.name) {
+  case "myTool":
+    // result.output is properly typed for myTool's output
+    console.log(result.output);
+    break;
+  case "anotherTool":
+    // result.output is properly typed for anotherTool's output
+    console.log(result.output);
+    break;
+  default:
+    return toolbox.assertExhaustive(result);
+}
+```
+
+## Related
+
+- [`pickaxe.tool`](/api-reference/tool) - Create individual tools to add to toolboxes
+- [`pickaxe.agent`](/api-reference/agent) - Create agents that can use toolboxes
+- [Hatchet Documentation](https://docs.hatchet.run) - Learn more about the underlying workflow engine

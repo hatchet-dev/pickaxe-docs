@@ -4,4 +4,195 @@ description: "API reference for pickaxe.agent."
 icon: "code"
 ---
 
-# `pickaxe.agent`
+The `pickaxe.agent` method creates a new instance of an agent in Pickaxe.
+
+## Quick Reference
+
+- **Main execution methods**: [`run()`](#runinput-options), [`runAndWait()`](#runandwaitinput-options), [`runNoWait()`](#runnowaitinput-options)
+- **Scheduling methods**: [`schedule()`](#scheduleenqueueat-input-options), [`delay()`](#delayduration-input-options), [`cron()`](#cronname-expression-input-options)
+
+## Usage Example
+
+```typescript
+import { pickaxe } from "@/pickaxe-client";
+import z from "zod";
+// TODO: Import your tools here
+// Example: import { myTool } from "@/tools/my-tool";
+
+const MyAgentInput = z.object({
+  message: z.string(),
+});
+
+const MyAgentOutput = z.object({
+  message: z.string(),
+});
+
+export const myToolbox = pickaxe.toolbox({
+  // See pickaxe.toolbox documentation
+  tools: [
+    // TODO: Add your tools here
+    // Example: myTool,
+  ],
+});
+
+export const myAgent = pickaxe.agent({
+  name: "my-agent",
+  executionTimeout: "15m",
+  inputSchema: MyAgentInput,
+  outputSchema: MyAgentOutput,
+  description: "Description of what this agent does",
+  fn: async (input, ctx) => {
+    const result = await myToolbox.pickAndRun(ctx, {
+      prompt: input.message,
+    });
+
+    switch (result.name) {
+      // TODO: Handle your tool results here
+      // Example:
+      // case "myTool":
+      //   return {
+      //     message: `Result: ${result.output}`,
+      //   };
+      default:
+        return myToolbox.assertExhaustive(result);
+    }
+  },
+});
+
+export default [myAgent, myToolbox];
+```
+
+## Parameters
+
+| Parameter          | Type                                                                                                         | Required | Description                                                                                                                   |
+| ------------------ | ------------------------------------------------------------------------------------------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `name`             | `string`                                                                                                     | Yes      | A unique identifier for the agent. Used for workflow registration and execution.                                              |
+| `description`      | `string`                                                                                                     | Yes      | A human-readable description of what the agent does and its purpose.                                                          |
+| `inputSchema`      | `ZodType`                                                                                                    | Yes      | Zod schema that defines and validates the input structure for the agent.                                                      |
+| `outputSchema`     | `ZodType`                                                                                                    | Yes      | Zod schema that defines and validates the output structure returned by the agent.                                             |
+| `fn`               | `(input: z.infer<InputSchema>, ctx: DurableContext<z.infer<InputSchema>>) => Promise<z.infer<OutputSchema>>` | Yes      | The main agent function that processes input and returns output. Receives validated input and durable context.                |
+| `executionTimeout` | `string`                                                                                                     | No       | Execution timeout duration for the agent after it starts running. Go duration format (e.g., "1s", "5m", "1h"). Default: "60s" |
+| `scheduleTimeout`  | `string`                                                                                                     | No       | Schedule timeout for the agent (max duration to allow the agent to wait in the queue). Go duration format. Default: "5m"      |
+| `retries`          | `number`                                                                                                     | No       | Number of retries for the agent. Default: 0                                                                                   |
+| `concurrency`      | [`Concurrency`](#concurrency-type) \| [`Concurrency[]`](#concurrency-type)                                   | No       | Concurrency configuration for the agent. Controls how many concurrent executions are allowed.                                 |
+| `defaultPriority`  | `Priority`                                                                                                   | No       | The priority for the agent. Values: Priority.LOW (1), Priority.MEDIUM (2), Priority.HIGH (3)                                  |
+| `onCrons`          | `string[]`                                                                                                   | No       | Cron config for the agent.                                                                                                    |
+| `onEvents`         | `string[]`                                                                                                   | No       | Event config for the agent.                                                                                                   |
+
+### Concurrency Type
+
+| Property        | Type                       | Required | Description                                                                            |
+| --------------- | -------------------------- | -------- | -------------------------------------------------------------------------------------- |
+| `expression`    | `string`                   | Yes      | The CEL expression to use for concurrency (e.g., "input.key")                          |
+| `maxRuns`       | `number`                   | No       | The maximum number of concurrent workflow runs. Default: 1                             |
+| `limitStrategy` | `ConcurrencyLimitStrategy` | No       | The strategy to use when the concurrency limit is reached. Default: CANCEL_IN_PROGRESS |
+
+## Returns
+
+The `pickaxe.agent` method returns an `AgentDeclaration<InputSchema, OutputSchema>` object with the following [properties](#properties) and [methods](#methods):
+
+### Properties
+
+| Property       | Type                          | Description                                              |
+| -------------- | ----------------------------- | -------------------------------------------------------- |
+| `inputSchema`  | `InputSchema`                 | The Zod schema used for input validation                 |
+| `outputSchema` | `OutputSchema`                | The Zod schema used for output validation                |
+| `description`  | `string`                      | The description of the agent                             |
+| `name`         | `string`                      | The unique name identifier for the agent                 |
+| `client`       | `IHatchetClient \| undefined` | The Hatchet client instance used to execute the workflow |
+| `definition`   | `WorkflowDefinition`          | The internal workflow definition                         |
+
+### Methods
+
+#### `run(input, options?)`
+
+Executes the agent with the given input and waits for completion.
+
+**Parameters:**
+
+- `input`: `z.infer<InputSchema>` - The input data for the agent
+- `options?`: [`RunOpts`](#runopts-type) - Optional configuration for this agent run
+
+**Returns:** `Promise<z.infer<OutputSchema>>` - A promise that resolves with the agent result
+
+**Throws:** Error if the agent is not bound to a Hatchet client
+
+#### `runAndWait(input, options?)`
+
+Alias for [`run()`](#runinput-options). Triggers an agent run and waits for the result.
+
+**Parameters:**
+
+- `input`: `z.infer<InputSchema>` - The input data for the agent
+- `options?`: [`RunOpts`](#runopts-type) - Optional configuration for this agent run
+
+**Returns:** `Promise<z.infer<OutputSchema>>` - A promise that resolves with the agent result
+
+#### `runNoWait(input, options?)`
+
+Triggers the agent execution without waiting for completion.
+
+**Parameters:**
+
+- `input`: `z.infer<InputSchema>` - The input data for the agent
+- `options?`: [`RunOpts`](#runopts-type) - Optional configuration for this agent run
+
+**Returns:** `Promise<WorkflowRunRef<z.infer<OutputSchema>>>` - A WorkflowRunRef containing the run ID and methods to get results and interact with the run
+
+**Throws:** Error if the agent is not bound to a Hatchet client
+
+#### `schedule(enqueueAt, input, options?)`
+
+Schedules the agent to run at a specific date and time in the future.
+
+**Parameters:**
+
+- `enqueueAt`: `Date` - The date when the agent should be triggered
+- `input`: `z.infer<InputSchema>` - The input data for the agent
+- `options?`: [`RunOpts`](#runopts-type) - Optional configuration for this agent run
+
+**Returns:** `Promise<ScheduledWorkflows>` - A promise that resolves with the scheduled workflow details
+
+**Throws:** Error if the agent is not bound to a Hatchet client
+
+#### `delay(duration, input, options?)`
+
+Schedules the agent to run after a specified delay.
+
+**Parameters:**
+
+- `duration`: `number` - The delay in seconds before the agent should run
+- `input`: `z.infer<InputSchema>` - The input data for the agent
+- `options?`: [`RunOpts`](#runopts-type) - Optional configuration for this agent run
+
+**Returns:** `Promise<ScheduledWorkflows>` - A promise that resolves with the scheduled workflow details
+
+**Throws:** Error if the agent is not bound to a Hatchet client
+
+#### `cron(name, expression, input, options?)`
+
+Creates a cron schedule for recurring agent execution.
+
+**Parameters:**
+
+- `name`: `string` - The name of the cron schedule
+- `expression`: `string` - The cron expression defining the schedule
+- `input`: `z.infer<InputSchema>` - The input data for the agent
+- `options?`: [`RunOpts`](#runopts-type) - Optional configuration for this agent run
+
+**Returns:** `Promise<CronWorkflows>` - A promise that resolves with the cron workflow details
+
+**Throws:** Error if the agent is not bound to a Hatchet client
+
+### RunOpts Type
+
+| Property             | Type                     | Required | Description                                                                                         |
+| -------------------- | ------------------------ | -------- | --------------------------------------------------------------------------------------------------- |
+| `additionalMetadata` | `Record<string, string>` | No       | Additional metadata to attach to the workflow run                                                   |
+| `priority`           | `Priority`               | No       | The priority for the workflow run. Values: Priority.LOW (1), Priority.MEDIUM (2), Priority.HIGH (3) |
+
+## Related
+
+- [`pickaxe.tool`](/api-reference/tool) - Create individual tools that can be used by agents
+- [`pickaxe.toolbox`](/api-reference/toolbox) - Create collections of tools for agents to use
+- [Hatchet Documentation](https://docs.hatchet.run) - Learn more about the underlying workflow engine

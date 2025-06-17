@@ -3,12 +3,14 @@ title: Introduction
 description: "Welcome to the Pickaxe documentation."
 ---
 
-Pickaxe is a library for building effective agents, built on top of [Hatchet](https://github.com/hatchet-dev/hatchet). Pickaxe agents are:
+Pickaxe is a library for building fault-tolerant agents, built on top of [Hatchet](https://github.com/hatchet-dev/hatchet). It handles the complexies of durable execution, queueing and scheduling so you can focus on building your application.
 
-- **Durable by default** - all tools called by the agent are sent through a durable message boundary
-- **Distributed by default** - all agents and tools run across a fleet of machines, where scheduling is handled gracefully by Hatchet
-- **Agnostic to execution pattern** - Pickaxe agents can be written as loops, scatter/gather workflows, or directed acyclic graphs
-- **Simple to scale** - Pickaxe agents allow simple configuration for retries, rate limiting, concurrency control, and much more
+Pickaxe agents are:
+
+- **💻 Code-first** - agents are defined as code and are designed to integrate with your business logic.
+- **🌐 Distributed** - all agents and tools run across a fleet of machines, where scheduling is handled gracefully by Pickaxe. When your underlying machine fails, Pickaxe takes care of rescheduling and resuming the agent on a different machine.
+- **⚙️ Configurable** - simple configuration for retries, rate limiting, concurrency control, and much more
+- **☁️ Runnable anywhere** - Pickaxe agents can run on any container-based platform (Railway, Fly.io, Porter, Kubernetes, AWS ECS, GCP Cloud Run)
 
 ## Get started
 

@@ -35,7 +35,11 @@
           },
           {
             "group": "API Reference",
-            "pages": ["api-reference/agent", "api-reference/tool"]
+            "pages": [
+              "api-reference/agent",
+              "api-reference/toolbox",
+              "api-reference/tool"
+            ]
           },
           {
             "group": "CLI Reference",

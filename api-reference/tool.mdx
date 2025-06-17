@@ -4,4 +4,188 @@ description: "API reference for pickaxe.tool."
 icon: "code"
 ---
 
-# `pickaxe.tool`
+The `pickaxe.tool` method creates a new tool that can be used by agents in Pickaxe.
+
+## Quick Reference
+
+- **Main execution methods**: [`run()`](#runinput-options), [`runAndWait()`](#runandwaitinput-options), [`runNoWait()`](#runnowaitinput-options)
+- **Scheduling methods**: [`schedule()`](#scheduleenqueueat-input-options), [`delay()`](#delayduration-input-options), [`cron()`](#cronname-expression-input-options)
+
+## Usage Example
+
+```typescript
+import { z } from "zod";
+import { pickaxe } from "@/pickaxe-client";
+
+// TODO: Define your custom interfaces here if needed
+// interface MyResponse {
+//   data: string;
+//   status: string;
+// }
+
+export const myTool = pickaxe.tool({
+  name: "my-tool",
+  description: "Description of what this tool does",
+  inputSchema: z.object({
+    // TODO: Define your input schema here
+    // Example: input: z.string().describe("The input parameter")
+  }),
+  outputSchema: z.object({
+    // TODO: Define your output schema here
+    // Example: result: z.string().describe("The tool result")
+  }),
+  fn: async (input) => {
+    try {
+      // TODO: Implement your tool logic here
+      // Example API call:
+      // const response = await fetch(`https://api.example.com/data?param=${input.param}`);
+      // const data = await response.json();
+
+      return {
+        // TODO: Return your tool output here
+        // Example: result: data.message
+      };
+    } catch (error) {
+      return {
+        // TODO: Handle errors appropriately for your tool
+        // Example: result: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  },
+});
+```
+
+## Parameters
+
+| Parameter          | Type                                                                         | Required | Description                                                                                                                  |
+| ------------------ | ---------------------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `name`             | `string`                                                                     | Yes      | A unique identifier for the tool. Used for tool registration and selection by agents.                                        |
+| `description`      | `string`                                                                     | Yes      | A human-readable description of what the tool does. Used by language models to decide when to use the tool.                  |
+| `inputSchema`      | `ZodType`                                                                    | Yes      | Zod schema that defines and validates the input structure for the tool.                                                      |
+| `outputSchema`     | `ZodType`                                                                    | Yes      | Zod schema that defines and validates the output structure returned by the tool.                                             |
+| `fn`               | `(input: z.infer<InputSchema>, ctx?: any) => Promise<z.infer<OutputSchema>>` | Yes      | The main tool function that processes input and returns output. Receives validated input and optional context.               |
+| `executionTimeout` | `string`                                                                     | No       | Execution timeout duration for the tool after it starts running. Go duration format (e.g., "1s", "5m", "1h"). Default: "60s" |
+| `scheduleTimeout`  | `string`                                                                     | No       | Schedule timeout for the tool (max duration to allow the tool to wait in the queue). Go duration format. Default: "5m"       |
+| `retries`          | `number`                                                                     | No       | Number of retries for the tool. Default: 0                                                                                   |
+| `concurrency`      | [`Concurrency`](#concurrency-type) \| [`Concurrency[]`](#concurrency-type)   | No       | Concurrency configuration for the tool. Controls how many concurrent executions are allowed.                                 |
+| `defaultPriority`  | `Priority`                                                                   | No       | The priority for the tool. Values: Priority.LOW (1), Priority.MEDIUM (2), Priority.HIGH (3)                                  |
+| `onCrons`          | `string[]`                                                                   | No       | Cron config for the tool.                                                                                                    |
+| `onEvents`         | `string[]`                                                                   | No       | Event config for the tool.                                                                                                   |
+
+### Concurrency Type
+
+| Property        | Type                       | Required | Description                                                                            |
+| --------------- | -------------------------- | -------- | -------------------------------------------------------------------------------------- |
+| `expression`    | `string`                   | Yes      | The CEL expression to use for concurrency (e.g., "input.key")                          |
+| `maxRuns`       | `number`                   | No       | The maximum number of concurrent workflow runs. Default: 1                             |
+| `limitStrategy` | `ConcurrencyLimitStrategy` | No       | The strategy to use when the concurrency limit is reached. Default: CANCEL_IN_PROGRESS |
+
+## Returns
+
+The `pickaxe.tool` method returns a `ToolDeclaration<InputSchema, OutputSchema> & { name: Name }` object with the following [properties](#properties) and [methods](#methods):
+
+### Properties
+
+| Property       | Type                          | Description                                              |
+| -------------- | ----------------------------- | -------------------------------------------------------- |
+| `inputSchema`  | `InputSchema`                 | The Zod schema used for input validation                 |
+| `outputSchema` | `OutputSchema`                | The Zod schema used for output validation                |
+| `description`  | `string`                      | The description of the tool                              |
+| `name`         | `string`                      | The unique name identifier for the tool                  |
+| `client`       | `IHatchetClient \| undefined` | The Hatchet client instance used to execute the workflow |
+| `definition`   | `WorkflowDefinition`          | The internal workflow definition                         |
+
+### Methods
+
+#### `run(input, options?)`
+
+Executes the tool with the given input and waits for completion.
+
+**Parameters:**
+
+- `input`: `z.infer<InputSchema>` - The input data for the tool
+- `options?`: [`RunOpts`](#runopts-type) - Optional configuration for this tool run
+
+**Returns:** `Promise<z.infer<OutputSchema>>` - A promise that resolves with the tool result
+
+**Throws:** Error if the tool is not bound to a Hatchet client
+
+#### `runAndWait(input, options?)`
+
+Alias for [`run()`](#runinput-options). Triggers a tool run and waits for the result.
+
+**Parameters:**
+
+- `input`: `z.infer<InputSchema>` - The input data for the tool
+- `options?`: [`RunOpts`](#runopts-type) - Optional configuration for this tool run
+
+**Returns:** `Promise<z.infer<OutputSchema>>` - A promise that resolves with the tool result
+
+#### `runNoWait(input, options?)`
+
+Triggers the tool execution without waiting for completion.
+
+**Parameters:**
+
+- `input`: `z.infer<InputSchema>` - The input data for the tool
+- `options?`: [`RunOpts`](#runopts-type) - Optional configuration for this tool run
+
+**Returns:** `Promise<WorkflowRunRef<z.infer<OutputSchema>>>` - A WorkflowRunRef containing the run ID and methods to get results and interact with the run
+
+**Throws:** Error if the tool is not bound to a Hatchet client
+
+#### `schedule(enqueueAt, input, options?)`
+
+Schedules the tool to run at a specific date and time in the future.
+
+**Parameters:**
+
+- `enqueueAt`: `Date` - The date when the tool should be triggered
+- `input`: `z.infer<InputSchema>` - The input data for the tool
+- `options?`: [`RunOpts`](#runopts-type) - Optional configuration for this tool run
+
+**Returns:** `Promise<ScheduledWorkflows>` - A promise that resolves with the scheduled workflow details
+
+**Throws:** Error if the tool is not bound to a Hatchet client
+
+#### `delay(duration, input, options?)`
+
+Schedules the tool to run after a specified delay.
+
+**Parameters:**
+
+- `duration`: `number` - The delay in seconds before the tool should run
+- `input`: `z.infer<InputSchema>` - The input data for the tool
+- `options?`: [`RunOpts`](#runopts-type) - Optional configuration for this tool run
+
+**Returns:** `Promise<ScheduledWorkflows>` - A promise that resolves with the scheduled workflow details
+
+**Throws:** Error if the tool is not bound to a Hatchet client
+
+#### `cron(name, expression, input, options?)`
+
+Creates a cron schedule for recurring tool execution.
+
+**Parameters:**
+
+- `name`: `string` - The name of the cron schedule
+- `expression`: `string` - The cron expression defining the schedule
+- `input`: `z.infer<InputSchema>` - The input data for the tool
+- `options?`: [`RunOpts`](#runopts-type) - Optional configuration for this tool run
+
+**Returns:** `Promise<CronWorkflows>` - A promise that resolves with the cron workflow details
+
+**Throws:** Error if the tool is not bound to a Hatchet client
+
+### RunOpts Type
+
+| Property             | Type                     | Required | Description                                                                                         |
+| -------------------- | ------------------------ | -------- | --------------------------------------------------------------------------------------------------- |
+| `additionalMetadata` | `Record<string, string>` | No       | Additional metadata to attach to the workflow run                                                   |
+| `priority`           | `Priority`               | No       | The priority for the workflow run. Values: Priority.LOW (1), Priority.MEDIUM (2), Priority.HIGH (3) |
+
+## Related
+
+- [`pickaxe.agent`](/api-reference/agent) - Create agents that can use tools
+- [`pickaxe.toolbox`](/api-reference/toolbox) - Create collections of tools for agents to use
+- [Hatchet Documentation](https://docs.hatchet.run) - Learn more about the underlying workflow engine
