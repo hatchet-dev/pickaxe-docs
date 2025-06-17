@@ -17,12 +17,6 @@ The `pickaxe.tool` method creates a new tool that can be used by agents in Picka
 import { z } from "zod";
 import { pickaxe } from "@/pickaxe-client";
 
-// TODO: Define your custom interfaces here if needed
-// interface MyResponse {
-//   data: string;
-//   status: string;
-// }
-
 export const myTool = pickaxe.tool({
   name: "my-tool",
   description: "Description of what this tool does",
