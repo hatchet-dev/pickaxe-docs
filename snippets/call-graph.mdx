@@ -9,13 +9,13 @@ export const CallGraphSequence = (props) => {
 
 const messages = [
 { from: 0, to: 1, label: 'API Request', top: 90, dashed: false },
-{ from: 1, to: 2, label: 'agent.run()', top: 119, dashed: false, link: '/api-reference/agent' },
-{ from: 2, to: 3, label: 'tool.run()', top: 148, dashed: false, link: '/api-reference/tool' },
-{ from: 3, to: 4, label: 'External Call', top: 177, dashed: false },
-{ from: 4, to: 3, label: 'Response', top: 206, dashed: true },
-{ from: 3, to: 2, label: 'Tool Result', top: 235, dashed: true },
-{ from: 2, to: 1, label: 'Agent Response', top: 264, dashed: true },
-{ from: 1, to: 0, label: 'API Response', top: 293, dashed: true }
+{ from: 1, to: 2, label: 'agent.run()', top: 125, dashed: false, link: '/api-reference/agent' },
+{ from: 2, to: 3, label: 'tool.run()', top: 160, dashed: false, link: '/api-reference/tool' },
+{ from: 3, to: 4, label: 'External Call', top: 195, dashed: false },
+{ from: 4, to: 3, label: 'Response', top: 230, dashed: true },
+{ from: 3, to: 2, label: 'Tool Result', top: 265, dashed: true },
+{ from: 2, to: 1, label: 'Agent Response', top: 300, dashed: true },
+{ from: 1, to: 0, label: 'API Response', top: 335, dashed: true }
 ];
 
 const actorData = props && props.actors ? props.actors : actors;
@@ -25,7 +25,7 @@ const config = {
 actorTop: 30,
 actorWidth: 80,
 lifelineTop: 60,
-lifelineHeight: 275,
+lifelineHeight: 310,
 lifelineOffset: 40,
 messageSpacing: 140
 };

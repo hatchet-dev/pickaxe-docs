@@ -13,20 +13,17 @@ Parallelization executes independent tasks simultaneously rather than sequential
 export const parallelizationActors = [
   { name: 'Client', left: 20 },
   { name: 'Agent', left: 160 },
-  { name: 'Task 1', left: 300 },
-  { name: 'Task 2', left: 440 },
-  { name: 'Task 3', left: 580 }
+  { name: 'Task A', left: 300 },
+  { name: 'Task B', left: 440 }
 ];
 
 export const parallelizationMessages = [
   { from: 0, to: 1, label: 'request', top: 90, dashed: false },
-  { from: 1, to: 2, label: 'parallel execution', top: 119, dashed: false },
-  { from: 1, to: 3, label: 'parallel execution', top: 119, dashed: false },
-  { from: 1, to: 4, label: 'parallel execution', top: 119, dashed: false },
-  { from: 2, to: 1, label: 'result 1', top: 148, dashed: true },
-  { from: 3, to: 1, label: 'result 2', top: 148, dashed: true },
-  { from: 4, to: 1, label: 'result 3', top: 148, dashed: true },
-  { from: 1, to: 0, label: 'aggregated response', top: 177, dashed: true }
+  { from: 1, to: 2, label: 'parallel task A', top: 130, dashed: false },
+  { from: 1, to: 3, label: 'parallel task B', top: 155, dashed: false },
+  { from: 2, to: 1, label: 'result A', top: 195, dashed: true },
+  { from: 3, to: 1, label: 'result B', top: 220, dashed: true },
+  { from: 1, to: 0, label: 'aggregated response', top: 260, dashed: true }
 ];
 
 <CallGraphSequence actors={parallelizationActors} messages={parallelizationMessages} />
