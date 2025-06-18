@@ -41,7 +41,10 @@
           },
           {
             "group": "Deployment",
-            "pages": []
+            "pages": [
+              "deployment/dockerizing",
+              "deployment/scaling"
+            ]
           },
           {
             "group": "API Reference",

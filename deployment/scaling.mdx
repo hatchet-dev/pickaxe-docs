@@ -1,0 +1,51 @@
+---
+title: "Scaling"
+description: "Scaling your Pickaxe application."
+icon: "chart-line"
+---
+
+# Slots
+
+Pickaxe processes are designed to run multiple agents and tool calls on a single machine. This is done by using a concept called "slots".
+
+Slots allow you to tune the work that can be performed on a single machine so you can ensure your process can handle the workload.
+
+There are two types of slots:
+
+- `slots`: Standard slots for cpu, memory, or io bound work (i.e. tool calls and toolboxes)
+- `durableSlots`: Slots for only deterministic io bound workload. (i.e. agents)
+
+Slots can be configured on the `pickaxe.start` method.
+
+```typescript
+pickaxe.start({
+    durableSlots: 1000,
+    slots: 10000,
+});
+```
+
+# Horizontal Scaling
+
+Pickaxe applications are designed to be run in any container-based platform. This means that you can scale your application by simply scaling the number of containers.
+
+You can autoscale the number of running instances based on queue depth or resource usage.
+
+## Optimizing Workloads
+
+Pickaxe tools can be run on separate machines from the agent. This means that you can optimize the workload of your tools by running them on machines with more powerful CPUs. This can also help in instances where workload may be deadlocked due to a finite number of slots with multiple generations of nested child tool calls.
+
+By default, Pickaxe will auto-register all agents, tools, and toolboxes registered on the `pickaxe` client. However, you can manually register tools and agents to specific slots.
+
+```typescript
+import { pickaxe } from "@/pickaxe-client";
+import { simpleAgent } from "@/agents/simple.agent";
+
+pickaxe.start({
+    name: "simple-agent"
+    register: [
+        simpleAgent,
+    ]
+});
+```
+
+If you are manually registering your workload, take care to ensure all work is registered and all workers are running. In the example above if the `simpleAgent` makes any tool calls, these tools will need to be registered on their own entry points.
