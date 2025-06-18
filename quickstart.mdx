@@ -7,11 +7,29 @@ description: "Learn how to build an agent in under 2 minutes."
 
 The Pickaxe CLI is a command line interface for quickly getting started with Pickaxe by scaffolding a new agent project:
 
-```sh
-pnpm i -g @hatchet-dev/pickaxe-cli
-pickaxe create my-agent
-cd my-agent
-```
+<Tabs>
+  <Tab title="npm">
+    ```sh
+    npm i -g @hatchet-dev/pickaxe-cli
+    pickaxe create my-agent
+    cd my-agent
+    ```
+  </Tab>
+  <Tab title="pnpm">
+    ```sh
+    pnpm i -g @hatchet-dev/pickaxe-cli
+    pickaxe create my-agent
+    cd my-agent
+    ```
+  </Tab>
+  <Tab title="yarn">
+    ```sh
+    yarn global add @hatchet-dev/pickaxe-cli
+    pickaxe create my-agent
+    cd my-agent
+    ```
+  </Tab>
+</Tabs>
 
 ### Generate a Hatchet API token
 
@@ -37,14 +55,42 @@ The default pickaxe agent is a simple deep research agent that can be triggered 
 
 To start your agent, you can run the following:
 
-```sh
-pnpm run dev
-```
+<Tabs>
+  <Tab title="npm">
+    ```sh
+    npm run dev
+    ```
+  </Tab>
+  <Tab title="pnpm">
+    ```sh
+    pnpm run dev
+    ```
+  </Tab>
+  <Tab title="yarn">
+    ```sh
+    yarn dev
+    ```
+  </Tab>
+</Tabs>
 
 To trigger the agent, you can run:
 
-```sh
-pnpm run trigger
-```
+<Tabs>
+  <Tab title="npm">
+    ```sh
+    npm run trigger
+    ```
+  </Tab>
+  <Tab title="pnpm">
+    ```sh
+    pnpm run trigger
+    ```
+  </Tab>
+  <Tab title="yarn">
+    ```sh
+    yarn trigger
+    ```
+  </Tab>
+</Tabs>
 
 This will prompt you for a deep research prompt and then execute the agent.
