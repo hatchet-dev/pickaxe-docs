@@ -36,7 +36,9 @@
               "patterns/prompt-chaining",
               "patterns/routing",
               "patterns/parallelization",
-              "patterns/evaluator-optimizer"
+              "patterns/evaluator-optimizer",
+              "patterns/multi-agent",
+              "patterns/human-in-the-loop"
             ]
           },
           {
@@ -46,6 +48,7 @@
           {
             "group": "API Reference",
             "pages": [
+              "api-reference/start",
               "api-reference/agent",
               "api-reference/tool",
               "api-reference/toolbox"

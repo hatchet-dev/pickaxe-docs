@@ -1,0 +1,210 @@
+---
+title: "Human-in-the-Loop"
+description: "Combine AI generation with human oversight for iterative improvement and quality control"
+icon: "user-check"
+---
+
+import { CallGraphSequence } from "/snippets/call-graph.mdx";
+
+_Based on [Anthropic's "Building Effective Agents"](https://www.anthropic.com/engineering/building-effective-agents) framework._
+
+Human-in-the-loop integrates human judgment into AI workflows through iterative generation and feedback cycles. The agent generates content, presents it for human review, incorporates feedback, and continues refining until approval is received, combining AI efficiency with human expertise for quality-sensitive tasks.
+
+export const humanLoopActors = [
+  { name: "Client", left: 20 },
+  { name: "Agent", left: 160 },
+  { name: "Generator", left: 300 },
+  { name: "Human Review", left: 440 },
+];
+
+export const humanLoopMessages = [
+  { from: 0, to: 1, label: "content request", top: 90, dashed: false },
+  { from: 1, to: 2, label: "generate content", top: 125, dashed: false },
+  { from: 2, to: 1, label: "draft content", top: 160, dashed: true },
+  { from: 1, to: 3, label: "review request", top: 195, dashed: false },
+  { from: 3, to: 1, label: "feedback/approval", top: 230, dashed: true },
+  { from: 1, to: 2, label: "refine with feedback", top: 265, dashed: false },
+  { from: 2, to: 1, label: "improved content", top: 300, dashed: true },
+  { from: 1, to: 0, label: "final approved content", top: 335, dashed: true },
+];
+
+<CallGraphSequence
+  actors={humanLoopActors}
+  messages={humanLoopMessages}
+  height={360}
+/>
+
+## When to Use
+
+Use human-in-the-loop when content quality depends on subjective judgment, brand consistency, or specialized expertise that AI cannot fully capture. This pattern is ideal for creative content, marketing copy, or compliance-sensitive material where human oversight is essential. Avoid when human review creates unacceptable delays or when quality standards can be adequately automated.
+
+## Implementation
+
+This example demonstrates social media content creation where AI generates posts that require human approval for brand voice and messaging, with iterative refinement based on reviewer feedback.
+
+### Agent Code
+
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { generatePostTool } from "@tools/generate-post";
+import { sendToSlackTool } from "@tools/send-to-slack";
+
+const ContentCreationInput = z.object({
+  topic: z.string(),
+  audience: z.string(),
+});
+
+const ContentCreationOutput = z.object({
+  finalPost: z.string(),
+  iterations: z.number(),
+  approved: z.boolean(),
+});
+
+export const contentCreationAgent = pickaxe.agent({
+  name: "content-creation-agent",
+  executionTimeout: "30m",
+  inputSchema: ContentCreationInput,
+  outputSchema: ContentCreationOutput,
+  description: "Creates social media content with human approval loop",
+  fn: async (input, ctx) => {
+    let currentPost = "";
+    let feedback = "";
+    const maxIterations = 3;
+
+    for (let iteration = 1; iteration <= maxIterations; iteration++) {
+      // GENERATE: Create or refine content based on feedback
+      const { post } = await generatePostTool.run({
+        topic: input.topic,
+        audience: input.audience,
+        previousFeedback: feedback,
+        previousPost: currentPost,
+      });
+
+      currentPost = post;
+
+      // HUMAN REVIEW: Send to human reviewer and wait for response
+      await sendToSlackTool.run({
+        post: currentPost,
+        iteration: iteration,
+      });
+
+      // WAIT FOR FEEDBACK: Pause execution until human responds
+      const reviewResult = await ctx.waitFor({
+        event: "post_review",
+        timeout: "24h",
+      });
+
+      if (reviewResult.approved) {
+        return {
+          finalPost: currentPost,
+          iterations: iteration,
+          approved: true,
+        };
+      }
+
+      feedback = reviewResult.feedback || "";
+    }
+
+    // FALLBACK: Return best attempt if max iterations reached
+    return {
+      finalPost: currentPost,
+      iterations: maxIterations,
+      approved: false,
+    };
+  },
+});
+```
+
+<AccordionGroup>
+<Accordion title="Generate Post Tool: Content Creation">
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { generateText } from "ai";
+
+export const generatePostTool = pickaxe.tool({
+  name: "generate-post-tool",
+  description: "Generates social media posts with optional feedback integration",
+  inputSchema: z.object({
+    topic: z.string(),
+    audience: z.string(),
+    previousFeedback: z.string().optional(),
+    previousPost: z.string().optional(),
+  }),
+  outputSchema: z.object({
+    post: z.string(),
+  }),
+  fn: async (input) => {
+    let prompt = `Create an engaging social media post about "${input.topic}" for a ${input.audience} audience. Make it compelling, appropriate for the platform, and aligned with professional brand voice.`;
+
+    if (input.previousFeedback && input.previousPost) {
+      prompt += `\n\nPrevious attempt:\n${input.previousPost}\n\nFeedback to incorporate:\n${input.previousFeedback}\n\nPlease revise the post based on this feedback.`;
+    }
+
+    const result = await generateText({
+      model: pickaxe.defaultLanguageModel,
+      prompt: prompt,
+    });
+
+    return {
+      post: result.text,
+    };
+
+},
+});
+
+````
+
+This tool generates social media content and can incorporate human feedback from previous iterations to improve subsequent versions, enabling iterative refinement.
+</Accordion>
+
+<Accordion title="Slack Integration Tool: Human Review Channel">
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+
+export const sendToSlackTool = pickaxe.tool({
+  name: "send-to-slack-tool",
+  description: "Sends content to Slack for human review and approval",
+  inputSchema: z.object({
+    post: z.string(),
+    iteration: z.number(),
+  }),
+  outputSchema: z.object({
+    messageSent: z.boolean(),
+    reviewUrl: z.string(),
+  }),
+  fn: async (input) => {
+    // INTEGRATION POINT: Replace with actual Slack API call
+    // const slackResponse = await fetch('https://hooks.slack.com/services/...', {
+    //   method: 'POST',
+    //   body: JSON.stringify({
+    //     text: `Review Request (Iteration ${input.iteration}):\n\n${input.post}`,
+    //     attachments: [{
+    //       actions: [
+    //         { name: "approve", text: "Approve", type: "button", value: "approve" },
+    //         { name: "feedback", text: "Request Changes", type: "button", value: "feedback" }
+    //       ]
+    //     }]
+    //   })
+    // });
+
+    return {
+      messageSent: true,
+      reviewUrl: `https://yourworkspace.slack.com/channels/content-review`,
+    };
+  },
+});
+````
+
+This tool sends generated content to a Slack channel for human review, enabling real-time feedback and approval workflows. Replace the placeholder with actual Slack API integration.
+
+</Accordion>
+</AccordionGroup>
+
+The pattern uses `ctx.waitFor()` to pause execution while awaiting human feedback, then incorporates that feedback into subsequent generations. This creates a collaborative workflow that combines AI speed with human judgment for quality-sensitive content creation.
+
+## Related Patterns
+
+This pattern works well with evaluator-optimizer for automated quality gates and can be combined with multi-agent systems where different specialists require human oversight for their specialized outputs.

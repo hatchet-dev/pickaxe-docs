@@ -20,19 +20,20 @@ const messages = [
 
 const actorData = props && props.actors ? props.actors : actors;
 const messageData = props && props.messages ? props.messages : messages;
+const height = props && props.height ? props.height : 370;
 
 const config = {
 actorTop: 30,
 actorWidth: 80,
 lifelineTop: 60,
-lifelineHeight: 310,
+lifelineHeight: height,
 lifelineOffset: 40,
 messageSpacing: 140
 };
 
 return (
 <div className="call-graph-container">
-<div className="call-graph-canvas">
+<div className="call-graph-canvas" style={{ height: height + 30 }}>
 {actorData.map((actor, index) => (
 <div
 key={index}
@@ -65,7 +66,7 @@ style={{
           const messageLeft = isReturn ? toActor.left + config.lifelineOffset + 6 : fromActor.left + config.lifelineOffset;
           const messageWidth = isReturn ?
             (fromActor.left + config.lifelineOffset) - (toActor.left + config.lifelineOffset + 6) :
-            (toActor.left + config.lifelineOffset) - (fromActor.left + config.lifelineOffset);
+            (toActor.left + config.lifelineOffset) - (fromActor.left + config.lifelineOffset  );
 
           return (
             <div
@@ -117,12 +118,12 @@ style={{
                 </div>
               )}
             </div>
-          );
+            );
         })}
       </div>
     </div>
 
-);
+  );
 };
 
 export const AgentRunCallGraph = () => {
@@ -183,7 +184,7 @@ style={{
           const messageLeft = isReturn ? toActor.left + config.lifelineOffset + 6 : fromActor.left + config.lifelineOffset;
           const messageWidth = isReturn ?
             (fromActor.left + config.lifelineOffset) - (toActor.left + config.lifelineOffset + 6) :
-            (toActor.left + config.lifelineOffset) - (fromActor.left + config.lifelineOffset);
+            (toActor.left + config.lifelineOffset) - (fromActor.left + config.lifelineOffset  );
 
           return (
             <div
@@ -235,10 +236,10 @@ style={{
                 </div>
               )}
             </div>
-          );
+            );
         })}
       </div>
     </div>
 
-);
+  );
 };

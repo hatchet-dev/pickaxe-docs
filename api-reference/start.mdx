@@ -1,0 +1,198 @@
+---
+title: "pickaxe.start"
+description: "API reference for pickaxe.start."
+icon: "code"
+---
+
+The `pickaxe.start` method starts the Pickaxe worker to process agents, tools, and toolboxes. It automatically discovers and registers your workflows or accepts explicit registration.
+
+## Quick Reference
+
+- **Auto-discovery**: Automatically finds agents, tools, and toolboxes created with `pickaxe.agent()`, `pickaxe.tool()`, and `pickaxe.toolbox()`
+- **Explicit registration**: Register specific workflows using the `register` parameter
+- **Worker configuration**: Configure worker slots, labels, and other runtime options
+
+## Usage Example
+
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import { openai } from "@ai-sdk/openai";
+import z from "zod";
+
+// Initialize Pickaxe client
+const client = pickaxe.init({
+  defaultLanguageModel: openai("gpt-4"),
+});
+
+// Create your agents and tools
+const searchTool = client.tool({
+  name: "search-tool",
+  description: "Searches for information",
+  inputSchema: z.object({
+    query: z.string().describe("The search query"),
+  }),
+  outputSchema: z.object({
+    results: z.array(z.string()).describe("Search results"),
+  }),
+  fn: async (input) => {
+    // Implementation here
+    return { results: [`Results for: ${input.query}`] };
+  },
+});
+
+const myAgent = client.agent({
+  name: "search-agent",
+  description: "An agent that can search for information",
+  inputSchema: z.object({
+    message: z.string().describe("User's search request"),
+  }),
+  outputSchema: z.object({
+    response: z.string().describe("Agent's response"),
+  }),
+  fn: async (input, ctx) => {
+    // Agent implementation
+    return { response: `Processed: ${input.message}` };
+  },
+});
+
+// Start with auto-discovery (recommended)
+await client.start();
+
+// Or start with explicit registration
+await client.start({
+  register: [myAgent, searchTool],
+});
+
+// Or start with worker configuration
+await client.start({
+  name: "production-worker",
+  slots: 50,
+  durableSlots: 500,
+  labels: {
+    environment: "production",
+    region: "us-east-1",
+  },
+  register: [myAgent, searchTool],
+});
+```
+
+## Parameters
+
+The `start()` method accepts a single optional `options` parameter with the following properties:
+
+| Parameter      | Type                                               | Required | Description                                                        |
+| -------------- | -------------------------------------------------- | -------- | ------------------------------------------------------------------ |
+| `name`         | `string`                                           | No       | Worker name for identification. Default: "pickaxe-worker"          |
+| `register`     | [`BaseOrRegisterable[]`](#baseorregisterable-type) | No       | Workflows to register. If omitted, uses auto-discovery             |
+| `slots`        | `number`                                           | No       | Maximum number of concurrent workflow runs. Default: 100           |
+| `durableSlots` | `number`                                           | No       | Maximum number of concurrent durable workflow runs. Default: 1,000 |
+| `labels`       | [`WorkerLabels`](#workerlabels-type)               | No       | Key-value pairs for worker affinity and routing                    |
+| `handleKill`   | `boolean`                                          | No       | Whether to handle process kill signals gracefully                  |
+| `workflows`    | `BaseWorkflowDeclaration[]`                        | No       | Direct workflow array (typically handled via `register`)           |
+
+### BaseOrRegisterable Type
+
+The `register` parameter accepts workflows and registerable objects:
+
+| Type                      | Description                                                    |
+| ------------------------- | -------------------------------------------------------------- |
+| `BaseWorkflowDeclaration` | Individual workflow (agent, tool, or Hatchet workflow)         |
+| `Registerable`            | Object with a `register` property that returns workflow arrays |
+
+**Supported workflow types:**
+
+- Agents created with [`pickaxe.agent()`](/api-reference/agent)
+- Tools created with [`pickaxe.tool()`](/api-reference/tool)
+- Toolboxes created with [`pickaxe.toolbox()`](/api-reference/toolbox)
+- Hatchet workflows created with the Hatchet SDK
+
+### WorkerLabels Type
+
+Worker labels for affinity-based assignment and routing:
+
+| Property | Type               | Description                                     |
+| -------- | ------------------ | ----------------------------------------------- |
+| `[key]`  | `string \| number` | Label key-value pairs for worker classification |
+
+Common label examples:
+
+```typescript
+{
+  environment: "production",
+  region: "us-east-1",
+  tier: "premium",
+  version: "1.0.0"
+}
+```
+
+## Returns
+
+**Type:** `Promise<undefined | void[]>`
+
+Returns a promise that resolves when the worker starts successfully. The exact return value depends on the underlying Hatchet worker implementation.
+
+## Auto-Discovery
+
+When `register` is omitted, Pickaxe automatically discovers workflows from an internal registry that gets populated when you create:
+
+- **Agents**: Added when calling `pickaxe.agent()`
+- **Tools**: Added when calling `pickaxe.tool()`
+- **Toolboxes**: Added when calling `pickaxe.toolbox()`
+
+```typescript
+// These are automatically registered
+const myAgent = pickaxe.agent({...});
+const myTool = pickaxe.tool({...});
+const myToolbox = pickaxe.toolbox({...});
+
+// Auto-discovery finds all three
+await pickaxe.start(); // Registers myAgent, myTool, and myToolbox
+```
+
+## Worker Configuration
+
+### Concurrency Control
+
+| Parameter      | Default | Purpose                            |
+| -------------- | ------- | ---------------------------------- |
+| `slots`        | 100     | Regular workflow concurrency limit |
+| `durableSlots` | 1,000   | Durable workflow concurrency limit |
+
+### Worker Identification
+
+- **`name`**: Identifies the worker in Hatchet dashboard and logs
+- **`labels`**: Used for workflow routing and worker affinity
+
+## Examples
+
+### Basic Auto-Discovery
+
+```typescript
+// Create workflows
+const agent = pickaxe.agent({...});
+const tool = pickaxe.tool({...});
+
+// Start automatically discovers both
+await pickaxe.start();
+```
+
+### Explicit Registration
+
+```typescript
+await pickaxe.start({
+  register: [
+    myAgent,
+    myTool,
+    myToolbox,
+    // Can mix with Hatchet workflows
+    someHatchetWorkflow,
+  ],
+});
+```
+
+## Related
+
+- [`pickaxe.agent`](/api-reference/agent) - Create agents that get auto-discovered
+- [`pickaxe.tool`](/api-reference/tool) - Create tools that get auto-discovered
+- [`pickaxe.toolbox`](/api-reference/toolbox) - Create toolboxes that get auto-discovered
+- [Hatchet Documentation](https://docs.hatchet.run) - Learn more about the underlying workflow engine and worker configuration

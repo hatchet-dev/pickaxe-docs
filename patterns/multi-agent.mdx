@@ -1,0 +1,160 @@
+---
+title: "Multi-Agent"
+description: "Orchestrate specialized agents to handle different types of requests through automatic routing"
+icon: "users"
+---
+
+import { CallGraphSequence } from "/snippets/call-graph.mdx";
+
+*Based on [Anthropic's "Building Effective Agents"](https://www.anthropic.com/engineering/building-effective-agents) framework.*
+
+Multi-agent orchestration delegates incoming requests to specialized agents based on the request type or domain. A coordinating agent acts as a router, automatically selecting the most appropriate specialized agent to handle each specific request, enabling focused expertise while maintaining a unified interface.
+
+export const multiAgentActors = [
+  { name: 'Client', left: 20 },
+  { name: 'Orchestrator', left: 160 },
+  { name: 'Agent A', left: 300 },
+  { name: 'Agent B', left: 440 }
+];
+
+export const multiAgentMessages = [
+  { from: 0, to: 1, label: 'request', top: 90, dashed: false },
+  { from: 1, to: 2, label: 'route to specialist', top: 125, dashed: false },
+  { from: 2, to: 1, label: 'specialized response', top: 160, dashed: true },
+  { from: 1, to: 0, label: 'final response', top: 195, dashed: true }
+];
+
+<CallGraphSequence actors={multiAgentActors} messages={multiAgentMessages} height={220} />
+
+## When to Use
+
+Use multi-agent orchestration when you have distinct request categories that benefit from specialized handling, such as support versus sales inquiries or different product domains. This pattern works best when each specialist agent can operate independently and when automatic routing based on request content is reliable. Avoid when requests frequently require multiple specialists or when the routing logic becomes complex.
+
+## Implementation
+
+This example demonstrates a customer service system where a coordinating agent automatically routes between support and sales specialists based on the nature of incoming requests.
+
+### Agent Code
+
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { supportAgent } from "@tools/support-agent";
+import { salesAgent } from "@tools/sales-agent";
+
+const CustomerServiceInput = z.object({
+  userMessage: z.string(),
+});
+
+const CustomerServiceOutput = z.object({
+  response: z.string(),
+  category: z.string(),
+});
+
+const customerServiceToolbox = pickaxe.toolbox({
+  tools: [supportAgent, salesAgent],
+});
+
+export const customerServiceAgent = pickaxe.agent({
+  name: "customer-service-agent",
+  executionTimeout: "5m",
+  inputSchema: CustomerServiceInput,
+  outputSchema: CustomerServiceOutput,
+  description: "Routes customer inquiries to specialized agents",
+  fn: async (input, ctx) => {
+    // AUTOMATIC ROUTING: Let the toolbox select the appropriate specialist
+    const result = await customerServiceToolbox.pickAndRun({
+      prompt: input.userMessage,
+    });
+
+    switch (result.name) {
+      case "support-agent":
+        return {
+          response: result.output.response,
+          category: "support",
+        };
+      case "sales-agent":
+        return {
+          response: result.output.response,
+          category: "sales",
+        };
+      default:
+        return customerServiceToolbox.assertExhaustive(result);
+    }
+  },
+});
+```
+
+<AccordionGroup>
+<Accordion title="Support Agent: Technical Assistance">
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { generateText } from "ai";
+
+export const supportAgent = pickaxe.tool({
+  name: "support-agent",
+  description: "Handles technical support, troubleshooting, and product issues",
+  inputSchema: z.object({
+    prompt: z.string(),
+  }),
+  outputSchema: z.object({
+    response: z.string(),
+  }),
+  fn: async (input) => {
+    const result = await generateText({
+      model: pickaxe.defaultLanguageModel,
+      prompt: `You are a technical support specialist. Help the customer with their technical issue, troubleshooting question, or product problem. Be helpful, detailed, and provide step-by-step solutions when appropriate.
+
+Customer message: ${input.prompt}`,
+    });
+
+    return {
+      response: result.text,
+    };
+  },
+});
+```
+
+This agent specializes in technical support scenarios, providing detailed troubleshooting guidance and product assistance. It focuses on problem-solving and technical expertise.
+</Accordion>
+
+<Accordion title="Sales Agent: Product Information">
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { generateText } from "ai";
+
+export const salesAgent = pickaxe.tool({
+  name: "sales-agent",
+  description: "Handles product inquiries, pricing questions, and sales-related requests",
+  inputSchema: z.object({
+    prompt: z.string(),
+  }),
+  outputSchema: z.object({
+    response: z.string(),
+  }),
+  fn: async (input) => {
+    const result = await generateText({
+      model: pickaxe.defaultLanguageModel,
+      prompt: `You are a sales specialist. Help the customer with product information, pricing questions, feature comparisons, and purchasing decisions. Be persuasive but helpful, highlighting relevant benefits and addressing their specific needs.
+
+Customer message: ${input.prompt}`,
+    });
+
+    return {
+      response: result.text,
+    };
+  },
+});
+```
+
+This agent specializes in sales scenarios, focusing on product benefits, pricing information, and helping customers make purchasing decisions with persuasive but helpful responses.
+</Accordion>
+</AccordionGroup>
+
+The pattern uses `pickAndRun()` for automatic agent selection based on the request content, with each specialist agent optimized for its specific domain. The orchestrator maintains a consistent interface while delegating to the most appropriate expert.
+
+## Related Patterns
+
+This pattern complements routing for complex decision trees and can be combined with human-in-the-loop for scenarios requiring specialist review or approval.

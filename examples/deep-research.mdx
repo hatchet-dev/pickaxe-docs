@@ -1,6 +1,534 @@
 ---
-title: "Deep Research"
-description: "Example deep research agent."
+title: "Deep Research Agent"
+description: "Multi-iteration research agent with adaptive search planning and quality gates"
+icon: "magnifying-glass"
 ---
 
-TODO
+import { CallGraphSequence } from "/snippets/call-graph.mdx";
+
+You can get the full code for this example by running:
+
+```bash
+pickaxe create deep-research-agent
+```
+
+And selecting the "Deep Research Agent" template.
+
+# Codewalk
+
+This research agent runs multiple search iterations, extracts facts from sources, and evaluates when it has enough information to provide a comprehensive answer. It uses [prompt chaining](/patterns/prompt-chaining) for sequential research steps and [evaluator-optimizer](/patterns/evaluator-optimizer) patterns for quality assessment.
+
+<CallGraphSequence
+  actors={[
+    { name: "Client", left: 20 },
+    { name: "Research Agent", left: 160 },
+    { name: "Search Planner", left: 320 },
+    { name: "Web Search", left: 460 },
+    { name: "Fact Extractor", left: 600 },
+    { name: "Quality Judge", left: 740 },
+  ]}
+  messages={[
+    { from: 0, to: 1, label: "research query", top: 90, dashed: false },
+    { from: 1, to: 2, label: "plan searches", top: 119, dashed: false },
+    { from: 2, to: 1, label: "search queries", top: 148, dashed: true },
+    { from: 1, to: 3, label: "execute search", top: 177, dashed: false },
+    { from: 3, to: 1, label: "search results", top: 206, dashed: true },
+    { from: 1, to: 4, label: "extract facts", top: 235, dashed: false },
+    { from: 4, to: 1, label: "structured facts", top: 264, dashed: true },
+    { from: 1, to: 5, label: "evaluate completeness", top: 293, dashed: false },
+    { from: 5, to: 1, label: "continue/summarize", top: 322, dashed: true },
+    { from: 1, to: 0, label: "comprehensive report", top: 351, dashed: true },
+  ]}
+/>
+
+## Architecture Overview
+
+The research agent runs up to 3 iterations of search, fact extraction, and evaluation. Each iteration plans new searches based on what information is still missing, then judges whether the collected facts are sufficient before continuing or generating a final summary.
+
+## Implementation
+
+This example shows how to build research agents that improve their results through multiple iterations, using quality gates to determine when they have enough information.
+
+### Research Agent
+
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { planSearchTool } from "@tools/plan-search";
+import { searchTool } from "@tools/search";
+import { websiteToMdTool } from "@tools/website-to-md";
+import { extractFactsTool } from "@tools/extract-facts";
+import { judgeFactsTool } from "@tools/judge-facts";
+import { judgeResultsTool } from "@tools/judge-results";
+import { summarizeTool } from "@tools/summarize";
+
+const ResearchInput = z.object({
+  query: z.string().describe("The research question or topic to investigate"),
+});
+
+const ResearchOutput = z.object({
+  summary: z.string().describe("Comprehensive research summary with citations"),
+  sources: z
+    .array(
+      z.object({
+        index: z.number(),
+        url: z.string(),
+        title: z.string(),
+      })
+    )
+    .describe("Sources used in the research"),
+  iterations: z.number().describe("Number of research iterations performed"),
+});
+
+export const researchAgent = pickaxe.agent({
+  name: "deep-research-agent",
+  inputSchema: ResearchInput,
+  outputSchema: ResearchOutput,
+  description: "Conducts comprehensive research with iterative refinement",
+  executionTimeout: "15m",
+  fn: async (input, ctx) => {
+    let allFacts: any[] = [];
+    let allSources: any[] = [];
+    let iteration = 0;
+    const maxIterations = 3;
+
+    while (iteration < maxIterations) {
+      iteration++;
+      ctx.logger.info(`Starting research iteration ${iteration}`);
+
+      // Plan searches based on existing knowledge gaps
+      const searchPlan = await planSearchTool.run({
+        query: input.query,
+        existingFacts: allFacts,
+        iteration,
+      });
+
+      // Execute planned searches
+      for (const searchQuery of searchPlan.queries) {
+        const searchResults = await searchTool.run({
+          query: searchQuery,
+          context: input.query,
+        });
+
+        // Convert websites to markdown and extract facts
+        for (const result of searchResults.results) {
+          if (allSources.some((s) => s.url === result.url)) continue;
+
+          const markdown = await websiteToMdTool.run({
+            url: result.url,
+            context: input.query,
+          });
+
+          const facts = await extractFactsTool.run({
+            content: markdown.content,
+            query: input.query,
+            sourceUrl: result.url,
+            sourceTitle: result.title,
+          });
+
+          allFacts.push(...facts.facts);
+          allSources.push({
+            index: allSources.length + 1,
+            url: result.url,
+            title: result.title,
+          });
+        }
+      }
+
+      // Evaluate if we have sufficient information
+      const factJudgment = await judgeFactsTool.run({
+        query: input.query,
+        facts: allFacts,
+      });
+
+      if (factJudgment.sufficient || iteration >= maxIterations) {
+        break;
+      }
+    }
+
+    // Generate comprehensive summary
+    const summary = await summarizeTool.run({
+      query: input.query,
+      facts: allFacts,
+      sources: allSources,
+    });
+
+    // Final quality check
+    const resultJudgment = await judgeResultsTool.run({
+      query: input.query,
+      summary: summary.summary,
+      sources: allSources,
+    });
+
+    return {
+      summary: summary.summary,
+      sources: allSources,
+      iterations: iteration,
+    };
+  },
+});
+```
+
+<AccordionGroup>
+<Accordion title="Search Planner: Adaptive Query Generation">
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { generateText } from "ai";
+
+const PlanSearchInput = z.object({
+query: z.string(),
+existingFacts: z.array(z.any()),
+iteration: z.number(),
+});
+
+const PlanSearchOutput = z.object({
+queries: z.array(z.string()),
+reasoning: z.string(),
+});
+
+export const planSearchTool = pickaxe.tool({
+  name: "plan-search",
+  inputSchema: PlanSearchInput,
+  outputSchema: PlanSearchOutput,
+  description: "Plans strategic search queries based on knowledge gaps",
+  fn: async (input) => {
+    const factsContext = input.existingFacts.length > 0 
+      ? `Existing facts: ${JSON.stringify(input.existingFacts, null, 2)}`
+      : "No existing facts yet.";
+
+    const { text } = await generateText({
+      model: openai("gpt-4o-mini"),
+      prompt: `You are a research strategist. Plan 2-3 strategic search queries for: "${input.query}"
+
+${factsContext}
+
+Focus on filling knowledge gaps and avoiding redundant information. Return as JSON:
+{
+"queries": ["query1", "query2", "query3"],
+"reasoning": "explanation of search strategy"
+}`,
+});
+
+    return JSON.parse(text);
+
+},
+});
+
+````
+
+This tool analyzes existing knowledge and identifies information gaps to generate targeted search queries for each iteration.
+</Accordion>
+
+<Accordion title="Web Search: Content Discovery">
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { generateText } from "ai";
+
+const SearchInput = z.object({
+  query: z.string(),
+  context: z.string(),
+  location: z.string().default("us"),
+});
+
+const SearchOutput = z.object({
+  results: z.array(z.object({
+    title: z.string(),
+    url: z.string(),
+    snippet: z.string(),
+  })),
+});
+
+export const searchTool = pickaxe.tool({
+  name: "search",
+  inputSchema: SearchInput,
+  outputSchema: SearchOutput,
+  description: "Performs web searches using OpenAI's search preview",
+  fn: async (input) => {
+    const { text } = await generateText({
+      model: openai("gpt-4o-mini"),
+      tools: {
+        web_search: {
+          description: "Search the web",
+          parameters: z.object({
+            query: z.string(),
+          }),
+        },
+      },
+      toolChoice: "required",
+      prompt: `Search for: ${input.query}. Context: ${input.context}`,
+    });
+
+    // Process search results and return structured format
+    return { results: [] }; // Implementation depends on OpenAI's search tool
+  },
+});
+````
+
+Executes web searches using OpenAI's preview search tool with context-aware query optimization.
+
+</Accordion>
+
+<Accordion title="Content Converter: Website to Markdown">
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { generateText } from "ai";
+
+const WebsiteToMdInput = z.object({
+url: z.string(),
+context: z.string(),
+});
+
+const WebsiteToMdOutput = z.object({
+content: z.string(),
+title: z.string(),
+});
+
+export const websiteToMdTool = pickaxe.tool({
+  name: "website-to-md",
+  inputSchema: WebsiteToMdInput,
+  outputSchema: WebsiteToMdOutput,
+  description: "Converts website content to clean markdown",
+  fn: async (input) => {
+    const { text } = await generateText({
+      model: openai("gpt-4o-mini"),
+      prompt: `Convert the content from ${input.url} to clean markdown format. 
+Focus on content relevant to: ${input.context}
+
+Remove navigation, ads, headers, footers. Keep only the main content.
+Return as JSON: {"content": "markdown content", "title": "page title"}`,
+});
+
+    return JSON.parse(text);
+
+},
+});
+
+````
+
+Extracts and cleans website content, converting it to structured markdown for fact extraction.
+</Accordion>
+
+<Accordion title="Fact Extractor: Structured Information Mining">
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { generateText } from "ai";
+
+const ExtractFactsInput = z.object({
+  content: z.string(),
+  query: z.string(),
+  sourceUrl: z.string(),
+  sourceTitle: z.string(),
+});
+
+const ExtractFactsOutput = z.object({
+  facts: z.array(z.object({
+    statement: z.string(),
+    relevance: z.number().min(1).max(10),
+    sourceUrl: z.string(),
+    sourceTitle: z.string(),
+  })),
+});
+
+export const extractFactsTool = pickaxe.tool({
+  name: "extract-facts",
+  inputSchema: ExtractFactsInput,
+  outputSchema: ExtractFactsOutput,
+  description: "Extracts relevant facts from content with source attribution",
+  fn: async (input) => {
+    const { text } = await generateText({
+      model: openai("gpt-4o-mini"),
+      prompt: `Extract relevant facts from this content for the query: "${input.query}"
+
+Content: ${input.content}
+
+Extract factual statements that directly answer or relate to the query.
+Rate relevance 1-10. Include proper source attribution.
+
+Return as JSON:
+{
+  "facts": [
+    {
+      "statement": "factual statement",
+      "relevance": 8,
+      "sourceUrl": "${input.sourceUrl}",
+      "sourceTitle": "${input.sourceTitle}"
+    }
+  ]
+}`,
+    });
+
+    return JSON.parse(text);
+  },
+});
+````
+
+Extracts structured facts from content with relevance scoring and source attribution for comprehensive research tracking.
+
+</Accordion>
+
+<Accordion title="Quality Gates: Completeness Assessment">
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { generateText } from "ai";
+
+const JudgeFactsInput = z.object({
+query: z.string(),
+facts: z.array(z.any()),
+});
+
+const JudgeFactsOutput = z.object({
+sufficient: z.boolean(),
+missingAspects: z.array(z.string()),
+reasoning: z.string(),
+});
+
+export const judgeFactsTool = pickaxe.tool({
+  name: "judge-facts",
+  inputSchema: JudgeFactsInput,
+  outputSchema: JudgeFactsOutput,
+  description: "Evaluates whether facts comprehensively address the query",
+  fn: async (input) => {
+    const { text } = await generateText({
+      model: openai("gpt-4o-mini"),
+      prompt: `Evaluate if these facts comprehensively address: "${input.query}"
+
+Facts: ${JSON.stringify(input.facts, null, 2)}
+
+Determine if the information is sufficient for a comprehensive answer.
+Identify any missing aspects or knowledge gaps.
+
+Return as JSON:
+{
+"sufficient": boolean,
+"missingAspects": ["aspect1", "aspect2"],
+"reasoning": "detailed explanation"
+}`,
+});
+
+    return JSON.parse(text);
+
+},
+});
+
+export const judgeResultsTool = pickaxe.tool({
+  name: "judge-results",
+  inputSchema: z.object({
+    query: z.string(),
+    summary: z.string(),
+    sources: z.array(z.any()),
+  }),
+  outputSchema: z.object({
+    complete: z.boolean(),
+    quality: z.number().min(1).max(10),
+    suggestions: z.array(z.string()),
+  }),
+  description: "Evaluates final research completeness and quality",
+  fn: async (input) => {
+    const { text } = await generateText({
+      model: openai("gpt-4o-mini"),
+      prompt: `Evaluate this research summary for: "${input.query}"
+
+Summary: ${input.summary}
+Sources: ${input.sources.length} sources
+
+Rate completeness, quality (1-10), and suggest improvements.
+Return as JSON with complete, quality, suggestions fields.`,
+});
+
+    return JSON.parse(text);
+
+},
+});
+
+````
+
+Implements quality gates at multiple stages to ensure comprehensive coverage and identify missing aspects for continued research.
+</Accordion>
+
+<Accordion title="Summarizer: Comprehensive Report Generation">
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { generateText } from "ai";
+
+const SummarizeInput = z.object({
+  query: z.string(),
+  facts: z.array(z.any()),
+  sources: z.array(z.object({
+    index: z.number(),
+    url: z.string(),
+    title: z.string(),
+  })),
+});
+
+const SummarizeOutput = z.object({
+  summary: z.string(),
+});
+
+export const summarizeTool = pickaxe.tool({
+  name: "summarize",
+  inputSchema: SummarizeInput,
+  outputSchema: SummarizeOutput,
+  description: "Creates comprehensive summaries with proper citations",
+  fn: async (input) => {
+    const factsWithSources = input.facts.map(fact => ({
+      ...fact,
+      sourceIndex: input.sources.find(s => s.url === fact.sourceUrl)?.index || 0,
+    }));
+
+    const { text } = await generateText({
+      model: openai("gpt-4o-mini"),
+      prompt: `Create a comprehensive summary for: "${input.query}"
+
+Facts: ${JSON.stringify(factsWithSources, null, 2)}
+
+Sources:
+${input.sources.map(s => `[${s.index}] ${s.title} - ${s.url}`).join('\n')}
+
+Create a well-structured summary with:
+1. Clear sections covering all aspects
+2. Proper citations using [source_index] format
+3. Comprehensive coverage of the topic
+4. Professional tone and formatting
+
+Return as JSON: {"summary": "detailed summary with citations"}`,
+    });
+
+    return JSON.parse(text);
+  },
+});
+````
+
+Generates comprehensive, well-cited summaries that synthesize all collected facts into a coherent research report.
+
+</Accordion>
+</AccordionGroup>
+
+## Key Features
+
+**Multiple Iterations**: Runs up to 3 research cycles, planning each search based on what information is missing from previous rounds.
+
+**Quality Gates**: Uses the [evaluator-optimizer](/patterns/evaluator-optimizer) pattern to judge whether collected facts are sufficient before continuing to the next iteration.
+
+**Source Tracking**: Prevents duplicate sources and maintains citation indexes throughout the research process.
+
+**Gap-Based Planning**: Each search iteration focuses on filling specific knowledge gaps rather than collecting redundant information.
+
+## Usage
+
+```typescript
+const result = await researchAgent.run({
+  query: "What are the latest developments in quantum computing hardware?",
+});
+
+console.log(`Research completed in ${result.iterations} iterations`);
+console.log(`Sources consulted: ${result.sources.length}`);
+console.log(`Summary: ${result.summary}`);
+```
+
+This example combines [prompt chaining](/patterns/prompt-chaining) for sequential research steps with [evaluator-optimizer](/patterns/evaluator-optimizer) for quality assessment, showing how to build research agents that improve through iteration.
