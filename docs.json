@@ -29,7 +29,7 @@
           {
             "group": "Development",
             "pages": [
-              "development/project-structure-and-entrypoints",
+              "development/project-structure",
               "development/developing-agents"
             ]
           },
@@ -46,10 +46,7 @@
           },
           {
             "group": "Deployment",
-            "pages": [
-              "deployment/dockerizing",
-              "deployment/scaling"
-            ]
+            "pages": ["deployment/dockerizing", "deployment/scaling"]
           },
           {
             "group": "API Reference",

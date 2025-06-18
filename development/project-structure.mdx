@@ -1,13 +1,11 @@
 ---
-title: "Project Structure and Entrypoints"
-description: "Understanding the entrypoints of your Pickaxe application."
+title: "Project Structure"
+description: "Understanding the structure and entrypoints of your Pickaxe application."
 ---
 
-# Project Structure
+Pickaxe does not enforce a specific project structure, but some of the tooling assumes a certain project structure to make it easier to develop agents and tools. The recommended structure for a Pickaxe application is to have a single entrypoint that imports your agents and tools, and starts the Pickaxe client.
 
-The recommended structure for a Pickaxe application is to have a single entrypoint that imports your agents and tools, and starts the Pickaxe client.
-
-```filesystem
+```txt
 my-app/
 ├── src/
 │   ├── agents/
@@ -40,7 +38,7 @@ pickaxe.start();
 
 ## Automatic Registration
 
-In this example project, the `my-app/src/agents/index.ts`  and `my-app/src/tools/index.ts` are barrel files that imports all the agents and tools in the `my-app/src/agents` and `my-app/src/tools` directories respectively.
+In this example project, the `my-app/src/agents/index.ts` and `my-app/src/tools/index.ts` are barrel files that imports all the agents and tools in the `my-app/src/agents` and `my-app/src/tools` directories respectively.
 
 ```typescript
 // my-app/src/agents/index.ts
@@ -48,7 +46,6 @@ export * from "./simple.agent";
 ```
 
 As you add more agents, tools, and toolboxes, you can add them to the barrel files and they will be automatically registered with the Pickaxe client.
-
 
 ### Manual registration
 
