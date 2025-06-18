@@ -3,13 +3,28 @@
   height: auto; /* Maintains aspect ratio */
 }
 
+/* Light mode CSS custom properties */
+:root,
+html:not(.dark) {
+  --color-background-primary: #ffffff;
+  --color-background-secondary: #fdfcfc;
+  --color-background-hover: #fef2f0;
+  --color-text-primary: #374151;
+  --color-border: rgba(230, 67, 39, 0.15);
+  --color-border-light: rgba(230, 67, 39, 0.05);
+  --color-primary: #E64327;
+  --color-primary-light: rgba(230, 67, 39, 0.3);
+  --color-primary-muted: rgba(230, 67, 39, 0.6);
+  --color-primary-dark: #8b2500;
+}
+
 /* Call Graph Styles */
 .call-graph-container {
   margin: 1.5rem 0;
   border-radius: 8px;
   overflow-x: auto;
   overflow-y: hidden;
-  border: 1px solid rgba(230, 67, 39, 0.2);
+  border: 1px solid var(--color-border, rgba(230, 67, 39, 0.15));
 }
 
 .call-graph-canvas {
@@ -18,10 +33,10 @@
   min-width: 700px;
   height: 325px;
   background: 
-    linear-gradient(rgba(230, 67, 39, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(230, 67, 39, 0.03) 1px, transparent 1px);
+    linear-gradient(var(--color-border-light, rgba(230, 67, 39, 0.05)) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-border-light, rgba(230, 67, 39, 0.05)) 1px, transparent 1px);
   background-size: 12px 12px;
-  background-color: #fdfcfc;
+  background-color: var(--color-background-secondary, #fdfcfc);
 }
 
 .call-graph-title {
@@ -31,24 +46,24 @@
   transform: translateX(-50%);
   font-size: 18px;
   font-weight: 600;
-  color: #374151;
-  background: rgba(255, 255, 255, 0.9);
+  color: var(--color-text-primary, #374151);
+  background: var(--color-background-primary, rgba(255, 255, 255, 0.9));
   padding: 8px 16px;
   border-radius: 6px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--color-border, #d1d5db);
   backdrop-filter: blur(10px);
 }
 
 .call-graph-actor {
   position: absolute;
-  background: #ffffff;
-  border: 1px solid rgba(230, 67, 39, 0.3);
+  background: var(--color-background-primary, #ffffff);
+  border: 1px solid var(--color-primary-light, rgba(230, 67, 39, 0.3));
   border-radius: 4px;
   padding: 6px 12px;
   min-width: 80px;
   text-align: center;
   font-weight: 500;
-  color: #8b2500;
+  color: var(--color-primary-dark, #8b2500);
   font-size: 12px;
   transition: all 0.2s ease;
   cursor: pointer;
@@ -57,14 +72,14 @@
 
 .call-graph-actor:hover,
 .call-graph-actor.hovered {
-  background: #fef2f0;
-  border-color: rgba(230, 67, 39, 0.5);
+  background: var(--color-background-hover, #fef2f0);
+  border-color: var(--color-primary, rgba(230, 67, 39, 0.5));
 }
 
 .call-graph-lifeline {
   position: absolute;
   width: 2px;
-  background: rgba(230, 67, 39, 0.4);
+  background: var(--color-primary-light, rgba(230, 67, 39, 0.4));
   border-radius: 1px;
 }
 
@@ -77,7 +92,7 @@
 
 .call-graph-message-line {
   height: 2px;
-  background: #E64327;
+  background: var(--color-primary, #E64327);
   border-radius: 1px;
   position: relative;
 }
@@ -85,8 +100,8 @@
 .call-graph-message-line.dashed {
   background: repeating-linear-gradient(
     90deg,
-    rgba(230, 67, 39, 0.6) 0px,
-    rgba(230, 67, 39, 0.6) 6px,
+    var(--color-primary-muted, rgba(230, 67, 39, 0.6)) 0px,
+    var(--color-primary-muted, rgba(230, 67, 39, 0.6)) 6px,
     transparent 6px,
     transparent 12px
   );
@@ -95,30 +110,30 @@
 .call-graph-arrow {
   width: 0;
   height: 0;
-  border-left: 6px solid #E64327;
+  border-left: 6px solid var(--color-primary, #E64327);
   border-top: 3px solid transparent;
   border-bottom: 3px solid transparent;
 }
 
 .call-graph-arrow.return {
   border-left: none;
-  border-right: 6px solid rgba(230, 67, 39, 0.6);
+  border-right: 6px solid var(--color-primary-muted, rgba(230, 67, 39, 0.6));
 }
 
 .call-graph-message-label {
-  background: #ffffff;
-  color: #8b2500;
+  background: var(--color-background-primary, #ffffff);
+  color: var(--color-primary-dark, #8b2500);
   padding: 2px 6px;
   border-radius: 3px;
   font-size: 11px;
   font-weight: 500;
-  border: 1px solid rgba(230, 67, 39, 0.3);
+  border: 1px solid var(--color-primary-light, rgba(230, 67, 39, 0.3));
   white-space: nowrap;
 }
 
 .call-graph-message-label:hover {
-  background: #fef2f0;
-  border-color: rgba(230, 67, 39, 0.5);
+  background: var(--color-background-hover, #fef2f0);
+  border-color: var(--color-primary, rgba(230, 67, 39, 0.5));
 }
 
 .call-graph-note {
@@ -150,56 +165,32 @@
 }
 
 
-/* Dark mode overrides */
+/* Dark mode CSS custom properties - Mintlify uses html.dark */
+html.dark {
+  --color-background-primary: #1a0e0a;
+  --color-background-secondary: #0f0605;
+  --color-background-hover: #2d1410;
+  --color-text-primary: #f1f5f9;
+  --color-border: rgba(230, 67, 39, 0.3);
+  --color-border-light: rgba(230, 67, 39, 0.08);
+  --color-primary: #E64327;
+  --color-primary-light: rgba(230, 67, 39, 0.4);
+  --color-primary-muted: rgba(230, 67, 39, 0.5);
+  --color-primary-dark: #ff9580;
+}
+
+/* Fallback for prefers-color-scheme */
 @media (prefers-color-scheme: dark) {
-  .call-graph-container {
-    border-color: #334155;
+  :root {
+    --color-background-primary: #1a0e0a;
+    --color-background-secondary: #0f0605;
+    --color-background-hover: #2d1410;
+    --color-text-primary: #f1f5f9;
+    --color-border: rgba(230, 67, 39, 0.3);
+    --color-border-light: rgba(230, 67, 39, 0.08);
+    --color-primary: #E64327;
+    --color-primary-light: rgba(230, 67, 39, 0.4);
+    --color-primary-muted: rgba(230, 67, 39, 0.5);
+    --color-primary-dark: #ff9580;
   }
-  
-  .call-graph-canvas {
-    background: 
-      linear-gradient(rgba(230, 67, 39, 0.08) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(230, 67, 39, 0.08) 1px, transparent 1px);
-    background-size: 12px 12px;
-    background-color: #0f0605;
-  }
-  
-  .call-graph-title {
-    color: #f1f5f9;
-    background: rgba(15, 23, 42, 0.9);
-    border-color: #334155;
-  }
-  
-  .call-graph-container {
-    border-color: rgba(230, 67, 39, 0.3);
-  }
-  
-  .call-graph-actor {
-    background: #1a0e0a;
-    border-color: rgba(230, 67, 39, 0.4);
-    color: #ff9580;
-    z-index: 10;
-  }
-  
-  .call-graph-actor:hover,
-  .call-graph-actor.hovered {
-    background: #2d1410;
-    border-color: rgba(230, 67, 39, 0.6);
-  }
-  
-  .call-graph-lifeline {
-    background: rgba(230, 67, 39, 0.5);
-  }
-  
-  .call-graph-message-label {
-    background: #1a0e0a;
-    color: #ff9580;
-    border-color: rgba(230, 67, 39, 0.4);
-  }
-  
-  .call-graph-message-label:hover {
-    background: #2d1410;
-    border-color: rgba(230, 67, 39, 0.6);
-  }
-  
 }
