@@ -14,7 +14,7 @@ The `pickaxe.agent` method creates a new instance of an agent in Pickaxe.
 ## Usage Example
 
 ```typescript
-import { pickaxe } from "@/pickaxe-client";
+import { pickaxe } from "@hatchet-dev/pickaxe";
 import z from "zod";
 // TODO: Import your tools here
 // Example: import { myTool } from "@/tools/my-tool";
@@ -64,20 +64,20 @@ export default [myAgent, myToolbox];
 
 ## Parameters
 
-| Parameter          | Type                                                                                                         | Required | Description                                                                                                                   |
-| ------------------ | ------------------------------------------------------------------------------------------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `name`             | `string`                                                                                                     | Yes      | A unique identifier for the agent. Used for workflow registration and execution.                                              |
-| `description`      | `string`                                                                                                     | Yes      | A human-readable description of what the agent does and its purpose.                                                          |
-| `inputSchema`      | `ZodType`                                                                                                    | Yes      | Zod schema that defines and validates the input structure for the agent.                                                      |
-| `outputSchema`     | `ZodType`                                                                                                    | Yes      | Zod schema that defines and validates the output structure returned by the agent.                                             |
-| `fn`               | `(input: z.infer<InputSchema>, ctx: DurableContext<z.infer<InputSchema>>) => Promise<z.infer<OutputSchema>>` | Yes      | The main agent function that processes input and returns output. Receives validated input and durable context.                |
-| `executionTimeout` | `string`                                                                                                     | No       | Execution timeout duration for the agent after it starts running. Go duration format (e.g., "1s", "5m", "1h"). Default: "60s" |
-| `scheduleTimeout`  | `string`                                                                                                     | No       | Schedule timeout for the agent (max duration to allow the agent to wait in the queue). Go duration format. Default: "5m"      |
-| `retries`          | `number`                                                                                                     | No       | Number of retries for the agent. Default: 0                                                                                   |
-| `concurrency`      | [`Concurrency`](#concurrency-type) \| [`Concurrency[]`](#concurrency-type)                                   | No       | Concurrency configuration for the agent. Controls how many concurrent executions are allowed.                                 |
-| `defaultPriority`  | `Priority`                                                                                                   | No       | The priority for the agent. Values: Priority.LOW (1), Priority.MEDIUM (2), Priority.HIGH (3)                                  |
-| `onCrons`          | `string[]`                                                                                                   | No       | Cron config for the agent.                                                                                                    |
-| `onEvents`         | `string[]`                                                                                                   | No       | Event config for the agent.                                                                                                   |
+| Parameter          | Type                                                                                                         | Required | Description                                                                                                                      |
+| ------------------ | ------------------------------------------------------------------------------------------------------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `name`             | `string`                                                                                                     | Yes      | A unique identifier for the agent. Used for workflow registration and execution.                                                 |
+| `description`      | `string`                                                                                                     | Yes      | A human-readable description of what the agent does and its purpose.                                                             |
+| `inputSchema`      | `ZodType`                                                                                                    | Yes      | Zod schema that defines and validates the input structure for the agent.                                                         |
+| `outputSchema`     | `ZodType`                                                                                                    | Yes      | Zod schema that defines and validates the output structure returned by the agent.                                                |
+| `fn`               | `(input: z.infer<InputSchema>, ctx: DurableContext<z.infer<InputSchema>>) => Promise<z.infer<OutputSchema>>` | Yes      | The main agent function that processes input and returns output. Receives validated input and [DurableContext](#durablecontext). |
+| `executionTimeout` | `string`                                                                                                     | No       | Execution timeout duration for the agent after it starts running. Go duration format (e.g., "1s", "5m", "1h"). Default: "60s"    |
+| `scheduleTimeout`  | `string`                                                                                                     | No       | Schedule timeout for the agent (max duration to allow the agent to wait in the queue). Go duration format. Default: "5m"         |
+| `retries`          | `number`                                                                                                     | No       | Number of retries for the agent. Default: 0                                                                                      |
+| `concurrency`      | [`Concurrency`](#concurrency-type) \| [`Concurrency[]`](#concurrency-type)                                   | No       | Concurrency configuration for the agent. Controls how many concurrent executions are allowed.                                    |
+| `defaultPriority`  | `Priority`                                                                                                   | No       | The priority for the agent. Values: Priority.LOW (1), Priority.MEDIUM (2), Priority.HIGH (3)                                     |
+| `onCrons`          | `string[]`                                                                                                   | No       | Cron config for the agent.                                                                                                       |
+| `onEvents`         | `string[]`                                                                                                   | No       | Event config for the agent.                                                                                                      |
 
 ### Concurrency Type
 
@@ -190,6 +190,74 @@ Creates a cron schedule for recurring agent execution.
 | -------------------- | ------------------------ | -------- | --------------------------------------------------------------------------------------------------- |
 | `additionalMetadata` | `Record<string, string>` | No       | Additional metadata to attach to the workflow run                                                   |
 | `priority`           | `Priority`               | No       | The priority for the workflow run. Values: Priority.LOW (1), Priority.MEDIUM (2), Priority.HIGH (3) |
+
+## DurableContext
+
+The `ctx` parameter in the agent function provides a `DurableContext` object that extends the standard workflow context with durable execution capabilities. This context persists across worker restarts and transient failures, making it essential for long-running agent workflows.
+
+### Core Properties
+
+| Property              | Type                        | Description                                           |
+| --------------------- | --------------------------- | ----------------------------------------------------- |
+| `input`               | `T`                         | The original input data for the agent                 |
+| `workflowRunId()`     | `() => string`              | Gets the ID of the current workflow run               |
+| `workflowName()`      | `() => string`              | Gets the name of the current workflow                 |
+| `taskName()`          | `() => string`              | Gets the name of the current running task             |
+| `taskRunId()`         | `() => string`              | Gets the ID of the current task run                   |
+| `workflowId()`        | `() => string \| undefined` | Gets the workflow ID                                  |
+| `workflowVersionId()` | `() => string \| undefined` | Gets the workflow version ID                          |
+| `cancelled`           | `boolean`                   | Gets cancellation status                              |
+| `controller`          | `AbortController`           | The abort controller for the current task             |
+| `logger`              | `Logger`                    | Structured logging methods (info, debug, warn, error) |
+
+### Durable Execution Methods
+
+| Method       | Parameters                                                                       | Returns                        | Description                                                             |
+| ------------ | -------------------------------------------------------------------------------- | ------------------------------ | ----------------------------------------------------------------------- |
+| `sleepFor()` | `duration: Duration, readableDataKey?: string`                                   | `Promise<Record<string, any>>` | Pauses execution for a specified duration that persists across restarts |
+| `waitFor()`  | `conditions: [Conditions](#conditions-type) \| [Conditions[]](#conditions-type)` | `Promise<Record<string, any>>` | Waits for specific conditions to be met, persisting across failures     |
+
+### Execution Control
+
+| Method             | Parameters              | Returns         | Description                                                |
+| ------------------ | ----------------------- | --------------- | ---------------------------------------------------------- |
+| `cancel()`         | None                    | `Promise<void>` | Cancels the current task                                   |
+| `refreshTimeout()` | `incrementBy: Duration` | `Promise<void>` | Refreshes the timeout for the current task                 |
+| `retryCount()`     | None                    | `number`        | Gets the number of times the current task has been retried |
+
+### Logging & Data Methods
+
+| Method                 | Parameters                   | Returns                  | Description                                                             |
+| ---------------------- | ---------------------------- | ------------------------ | ----------------------------------------------------------------------- |
+| `putStream()`          | `data: string \| Uint8Array` | `Promise<void>`          | Streams data from the current task run                                  |
+| `additionalMetadata()` | None                         | `Record<string, string>` | Retrieves additional metadata                                           |
+| `errors()`             | None                         | `Record<string, string>` | Returns errors from any task runs in the workflow                       |
+| `triggers()`           | None                         | `TriggerData`            | Gets the dag conditional triggers for the current workflow run          |
+| `filterPayload()`      | None                         | `Record<string, any>`    | Gets the payload from the filter that matched when triggering the event |
+| `triggeredByEvent()`   | None                         | `boolean`                | Determines if the workflow was triggered by an event                    |
+| `priority()`           | None                         | `Priority \| undefined`  | Gets the priority of the workflow                                       |
+
+### Conditions Type
+
+The `Conditions` type defines criteria that the agent can wait for during durable execution:
+
+| Condition Type | Description                                    |
+| -------------- | ---------------------------------------------- |
+| `Sleep`        | Sleep for a specified duration                 |
+| `UserEvent`    | Wait for a specific user event to be triggered |
+| `Parent`       | Wait for parent task completion                |
+
+Conditions can be combined using `Or()` for complex conditional logic.
+
+### Duration Format
+
+Durations use a subset of Go duration string format with single suffixes only:
+
+| Format | Description |
+| ------ | ----------- |
+| `"1s"` | 1 second    |
+| `"5m"` | 5 minutes   |
+| `"1h"` | 1 hour      |
 
 ## Related
 

@@ -1,7 +1,116 @@
 ---
 title: "CLI Reference"
-description: "CLI reference for pickaxe."
-icon: "code"
+description: "CLI reference for the Pickaxe command-line tool."
+icon: "terminal"
 ---
 
 # `pickaxe`
+
+CLI tool for managing Pickaxe components, agents, and tools.
+
+## Global Options
+
+| Option             | Description                                     |
+| ------------------ | ----------------------------------------------- |
+| `-C, --cwd <path>` | Change working directory before running command |
+| `--version`        | Show version information                        |
+
+## Commands
+
+### `pickaxe create [name]`
+
+Create a new Pickaxe project.
+
+**Arguments:**
+
+- `[name]` - Project name (optional)
+
+**Example:**
+
+```bash
+pickaxe create my-project
+```
+
+### `pickaxe add`
+
+Add various resources to your project.
+
+#### `pickaxe add agent <name>`
+
+Add a new agent to the project.
+
+**Arguments:**
+
+- `<name>` - Agent name (required)
+
+**Options:**
+| Option | Description | Default |
+|--------|-------------|---------|
+| `-m, --model <model>` | AI model to use | `gpt-4` |
+
+**Example:**
+
+```bash
+pickaxe add agent my-agent --model gpt-4
+```
+
+#### `pickaxe add tool <name>`
+
+Add a new tool to the project.
+
+**Arguments:**
+
+- `<name>` - Tool name (required)
+
+**Example:**
+
+```bash
+pickaxe add tool my-tool
+```
+
+### `pickaxe mcp`
+
+Start the Model Context Protocol server for development (should only be started by coding assistants).
+
+**Example:**
+
+```bash
+pickaxe mcp
+```
+
+### `pickaxe version`
+
+Show version information.
+
+**Example:**
+
+```bash
+pickaxe version
+```
+
+## Usage Examples
+
+### Create a new project
+
+```bash
+pickaxe create my-ai-project
+cd my-ai-project
+```
+
+### Add an agent
+
+```bash
+pickaxe add agent customer-support --model gpt-4
+```
+
+### Add a tool
+
+```bash
+pickaxe add tool database-query
+```
+
+### Change working directory
+
+```bash
+pickaxe -C /path/to/project add agent new-agent
+```

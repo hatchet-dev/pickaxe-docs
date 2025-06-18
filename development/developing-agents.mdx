@@ -1,0 +1,146 @@
+---
+title: "Developing Agents"
+description: "Instructions for best practices while developing agents."
+---
+
+When developing Pickaxe agents, it's recommended to use the Pickaxe MCP server for local development. This allows for fast scaffolding of agents and tools, and provides instructions with best practices for agent development.
+
+# Pickaxe MCP Server
+
+The Pickaxe CLI comes bundled with a local MCP server which runs on a `stdio` connection for development. This enables AI development tools to interact with your Pickaxe project programmatically. Make sure you have installed the Pickaxe CLI globally:
+
+```bash
+pnpm i -g @hatchet-dev/pickaxe-cli
+```
+
+## Quick Setup
+
+The basic Pickaxe MCP server configuration:
+
+```json
+{
+  "mcpServers": {
+    "pickaxe": {
+      "command": "pickaxe",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+## Environment Configuration
+
+### Cursor
+
+Create a `.cursor/mcp.json` file in your project root:
+
+```json
+{
+  "mcpServers": {
+    "pickaxe": {
+      "command": "pickaxe",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### VS Code
+
+Create a `.vscode/mcp.json` file in your project root:
+
+```json
+{
+  "mcpServers": {
+    "pickaxe": {
+      "command": "pickaxe",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### Claude Code
+
+Create a `.mcp.json` file in your project root:
+
+```json
+{
+  "mcpServers": {
+    "pickaxe": {
+      "command": "pickaxe",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Alternatively, configure via the Claude Code CLI:
+
+```bash
+claude-code config mcp add pickaxe "pickaxe mcp"
+```
+
+### Other AI Tools
+
+For tools that support MCP, place the configuration in their designated MCP configuration file location. The standard configuration format remains:
+
+```json
+{
+  "mcpServers": {
+    "pickaxe": {
+      "command": "pickaxe",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### Working Directory
+
+Specify a custom working directory:
+
+```json
+{
+  "mcpServers": {
+    "pickaxe": {
+      "command": "pickaxe",
+      "args": ["mcp", "--cwd", "/path/to/your/pickaxe/project"]
+    }
+  }
+}
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**MCP server not starting**: Ensure Pickaxe CLI is installed and accessible:
+
+```bash
+pickaxe --version
+```
+
+**Permission errors**: Check that the Pickaxe CLI has execution permissions and the project directory is accessible.
+
+**Connection failures**: Verify the configuration file is in the correct location for your environment and follows the proper JSON format.
+
+# Using the CLI
+
+You can also use the Pickaxe CLI for development using the `pickaxe add` commands. These commands generate the boilerplate for agents and tools in a default Pickaxe project structure. You can also use these as a starting point for agents in your own project.
+
+## Creating an Agent
+
+You can scaffold a new agent using the `pickaxe add agent` command. This command creates a new agent with the specified name and model, and generates the boilerplate code for the agent in the `./src/agents` directory.
+
+```sh
+pickaxe add agent my-agent --model gpt-4
+```
+
+## Creating a Tool
+
+You can scaffold a new tool using the `pickaxe add tool` command. This command creates a new tool with the specified name and category, and generates the boilerplate code for the tool in the `./src/tools` directory.
+
+```sh
+pickaxe add tool my-tool
+```

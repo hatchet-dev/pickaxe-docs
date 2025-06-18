@@ -1,0 +1,188 @@
+---
+title: "Prompt Chaining"
+description: "Sequential LLM calls with validation gates for improved accuracy and control"
+icon: "link"
+---
+
+import { CallGraphSequence } from "/snippets/call-graph.mdx";
+
+*Based on [Anthropic's "Building Effective Agents"](https://www.anthropic.com/engineering/building-effective-agents) framework.*
+
+Prompt chaining decomposes complex tasks into sequential steps, where each LLM call processes the output of the previous one. Programmatic validation gates between steps ensure the process stays on track and can terminate early when expectations aren't met. This pattern trades latency for higher accuracy by making each individual LLM call simpler and more focused.
+
+export const promptChainingActors = [
+  { name: 'Client', left: 20 },
+  { name: 'Agent', left: 160 },
+  { name: 'Step 1', left: 300 },
+  { name: 'Validation Gate', left: 440 },
+  { name: 'Step 2', left: 580 }
+];
+
+export const promptChainingMessages = [
+  { from: 0, to: 1, label: 'request', top: 90, dashed: false },
+  { from: 1, to: 2, label: 'process', top: 119, dashed: false },
+  { from: 2, to: 1, label: 'result', top: 148, dashed: true },
+  { from: 1, to: 3, label: 'validate', top: 177, dashed: false },
+  { from: 3, to: 1, label: 'pass/fail', top: 206, dashed: true },
+  { from: 1, to: 4, label: 'next step', top: 235, dashed: false },
+  { from: 4, to: 1, label: 'final result', top: 264, dashed: true },
+  { from: 1, to: 0, label: 'response', top: 293, dashed: true }
+];
+
+<CallGraphSequence actors={promptChainingActors} messages={promptChainingMessages} />
+
+## When to Use
+
+Use prompt chaining when tasks can be decomposed into fixed subtasks with clear boundaries, especially when you need validation gates between processing steps. It's ideal for trading latency for higher accuracy and when early termination benefits the user experience. Avoid this pattern when real-time performance is critical or when steps are highly interdependent and can't be meaningfully separated.
+
+## Implementation
+
+This example demonstrates a three-step chain that processes animal-related messages: detecting if the input is about an animal, translating it to Spanish, and converting it into a haiku. The validation gate ensures only animal-related messages proceed through the full chain.
+
+### Agent Code
+
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { oneTool } from "@tools/one.tool";
+import { twoTool } from "@tools/two.tool";
+import { threeTool } from "@tools/three.tool";
+
+export const promptChainingAgent = pickaxe.agent({
+  name: "prompt-chaining-agent",
+  executionTimeout: "1m",
+  inputSchema: z.object({ message: z.string() }),
+  outputSchema: z.object({ result: z.string() }),
+  description: "Demonstrates prompt chaining: sequential LLM calls with validation gates",
+  fn: async (input, ctx) => {
+    // STEP 1: First LLM call - Process the initial message
+    const { oneOutput } = await oneTool.run({
+        message: input.message,
+    });
+
+    // GATE: Programmatic validation check between steps
+    if(!oneOutput) {
+        return {
+            result: 'Please provide a message about an animal'
+        }
+    }
+
+    // STEP 2: Second LLM call - Transform the validated input
+    const { twoOutput } = await twoTool.run({
+        message: input.message,
+    });
+
+    // STEP 3: Third LLM call - Final transformation
+    const { threeOutput } = await threeTool.run({
+        twoOutput, // Note: Using output from previous step as input
+    });
+
+    return {
+        result: threeOutput
+    }
+  },
+});
+```
+
+<AccordionGroup>
+<Accordion title="Animal Detection Tool: Validation Gate">
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { generateText } from "ai";
+
+export const oneTool = pickaxe.tool({
+  name: "one-tool",
+  description: "A tool that returns 1",
+  inputSchema: z.object({
+    message: z.string(),
+  }),
+  outputSchema: z.object({
+    oneOutput: z.boolean(),
+  }),
+  fn: async (input) => {
+    // Make an LLM call to get the oneOutput
+    const oneOutput = await generateText({
+      model: pickaxe.defaultLanguageModel,
+      prompt: `Is the following text about an animal? If so, return "yes", otherwise return "no": ${input.message}`,
+    });
+
+    return {
+      oneOutput: oneOutput.text === "yes",
+    };
+  },
+});
+```
+
+This tool acts as the validation gate in our chain. It analyzes the input message to determine if it's about an animal, returning a boolean that the agent uses to decide whether to continue processing or terminate early with an error message.
+</Accordion>
+
+<Accordion title="Spanish Translation Tool: Content Transformation">
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import { generateText } from "ai";
+import z from "zod";
+
+export const twoTool = pickaxe.tool({
+  name: "two-tool",
+  description: "Translates text into spanish",
+  inputSchema: z.object({
+    message: z.string(),
+  }),
+  outputSchema: z.object({
+    twoOutput: z.string(),
+  }),
+  fn: async (input) => {
+    // Make an LLM call to get the twoOutput
+    const twoOutput = await generateText({
+      model: pickaxe.defaultLanguageModel,
+      prompt: `Translate the following text into spanish: ${input.message}`,
+    });
+
+    return {
+      twoOutput: twoOutput.text,
+    };
+  },
+});
+```
+
+This tool performs the first content transformation, taking the original validated message and translating it into Spanish. It demonstrates how each step in the chain can focus on a single, specific task.
+</Accordion>
+
+<Accordion title="Haiku Creation Tool: Final Processing">
+```typescript
+import { pickaxe } from "@/pickaxe-client";
+import z from "zod";
+import { generateText } from "ai";
+
+export const threeTool = pickaxe.tool({
+  name: "three-tool",
+  description: "A tool that makes text into a haiku",
+  inputSchema: z.object({
+    twoOutput: z.string(),
+  }),
+  outputSchema: z.object({
+    threeOutput: z.string(),
+  }),
+  fn: async (input) => {
+    const threeOutput = await generateText({
+      model: pickaxe.defaultLanguageModel,
+      prompt: `Make the following text into a haiku: ${input.twoOutput}`,
+    });
+
+    return {
+      threeOutput: threeOutput.text,
+    };
+  },
+});
+```
+
+This tool completes the chain by converting the Spanish text into haiku format. Notice how it takes the output from the previous step (`twoOutput`) as its input, demonstrating the sequential nature of prompt chaining.
+</Accordion>
+</AccordionGroup>
+
+The pattern consists of sequential tool calls connected by validation gates. Each tool performs a focused task, and validation logic determines whether to continue or terminate early. The key insight is that intermediate validation allows for better error handling and quality control compared to attempting the entire task in a single LLM call.
+
+## Related Patterns
+
+This pattern works well with routing for dynamic decision-making and can be combined with parallelization when some steps are independent.

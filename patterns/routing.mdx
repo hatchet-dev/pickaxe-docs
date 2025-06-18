@@ -1,0 +1,216 @@
+---
+title: "Routing"
+description: "Direct different request types to specialized handlers for optimized processing"
+icon: "route"
+---
+
+import { CallGraphSequence } from "/snippets/call-graph.mdx";
+
+*Based on [Anthropic's "Building Effective Agents"](https://www.anthropic.com/engineering/building-effective-agents) framework.*
+
+Routing directs different types of requests to specialized handlers optimized for specific domains. A classification step determines the request type, then routes it to the appropriate specialized agent or tool. This pattern improves response quality by using domain-specific prompts and context while maintaining a single entry point for users.
+
+export const routingActors = [
+  { name: 'Client', left: 20 },
+  { name: 'Router Agent', left: 160 },
+  { name: 'Classification', left: 300 },
+  { name: 'Support Handler', left: 440 },
+  { name: 'Sales Handler', left: 580 }
+];
+
+export const routingMessages = [
+  { from: 0, to: 1, label: 'request', top: 90, dashed: false },
+  { from: 1, to: 2, label: 'classify', top: 119, dashed: false },
+  { from: 2, to: 1, label: 'category', top: 148, dashed: true },
+  { from: 1, to: 3, label: 'route to handler', top: 177, dashed: false },
+  { from: 3, to: 1, label: 'specialized response', top: 206, dashed: true },
+  { from: 1, to: 0, label: 'response', top: 235, dashed: true }
+];
+
+<CallGraphSequence actors={routingActors} messages={routingMessages} />
+
+## When to Use
+
+Use routing when you have distinct request types that benefit from specialized handling, such as customer service systems with support, sales, and billing inquiries. It's ideal when different domains require different prompts, tools, or context. Avoid routing when requests are too similar to benefit from specialization or when the classification overhead outweighs the benefits of specialized handling.
+
+## Implementation
+
+This example demonstrates a customer service router that classifies incoming messages as Support, Sales, or Other requests, then directs them to specialized handlers optimized for each domain.
+
+### Agent Code
+
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { classificationTool } from "@tools/classification.tool";
+import { supportTool, salesTool } from "@tools/calls.tool";
+
+const RoutingAgentInput = z.object({
+  message: z.string(),
+});
+
+const RoutingAgentOutput = z.object({
+  message: z.string(),
+  canHelp: z.boolean(),
+});
+
+export const routingAgent = pickaxe.agent({
+  name: "routing-agent",
+  executionTimeout: "1m",
+  inputSchema: RoutingAgentInput,
+  outputSchema: RoutingAgentOutput,
+  description: "Routes messages to specialized handlers based on classification",
+  fn: async (input, ctx) => {
+    // STEP 1: Classify the incoming message
+    const { classification } = await classificationTool.run({
+      message: input.message,
+    });
+
+    // STEP 2: Route to specialized handler based on classification
+    switch (classification) {
+      case "support": {
+        const { response } = await supportTool.run({
+          message: input.message,
+        });
+        return {
+          message: response,
+          canHelp: true,
+        };
+      }
+      case "sales": {
+        const { response } = await salesTool.run({
+          message: input.message,
+        });
+        return {
+          message: response,
+          canHelp: true,
+        };
+      }
+      case "other": {
+        return {
+          message: "I'm not sure how to help with that. Could you provide more details or rephrase your question?",
+          canHelp: false,
+        };
+      }
+      default: {
+        throw new Error(`Invalid classification: ${classification}`);
+      }
+    }
+  },
+});
+```
+
+<AccordionGroup>
+<Accordion title="Classification Tool: Request Categorization">
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { generateObject } from "ai";
+
+const Classification = z.enum(["support", "sales", "other"]);
+
+export const classificationTool = pickaxe.tool({
+  name: "classification-tool",
+  description: "Classifies incoming messages into categories",
+  inputSchema: z.object({
+    message: z.string(),
+  }),
+  outputSchema: z.object({
+    classification: Classification,
+  }),
+  fn: async (input) => {
+    const result = await generateObject({
+      model: pickaxe.defaultLanguageModel,
+      prompt: `Classify the following message into one of these categories:
+      - support: Technical issues, bugs, how-to questions
+      - sales: Pricing, features, purchasing questions  
+      - other: Everything else
+      
+      Message: ${input.message}`,
+      schema: z.object({
+        classification: Classification,
+      }),
+    });
+
+    return {
+      classification: result.object.classification,
+    };
+  },
+});
+```
+
+This tool uses structured output to ensure reliable classification into predefined categories. The LLM analyzes the message content and returns a valid enum value, preventing invalid classifications that could break the routing logic.
+</Accordion>
+
+<Accordion title="Support Handler: Technical Assistance">
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { generateText } from "ai";
+
+export const supportTool = pickaxe.tool({
+  name: "support-tool",
+  description: "Handles technical support requests",
+  inputSchema: z.object({
+    message: z.string(),
+  }),
+  outputSchema: z.object({
+    response: z.string(),
+  }),
+  fn: async (input) => {
+    const result = await generateText({
+      model: pickaxe.defaultLanguageModel,
+      prompt: `You are a technical support specialist. Help the user with their technical issue. If it's a common problem, suggest turning it off and on again as a first step.
+
+User message: ${input.message}`,
+    });
+
+    return {
+      response: result.text,
+    };
+  },
+});
+```
+
+This specialized handler focuses on technical support scenarios, using domain-specific prompts and suggesting common troubleshooting steps. The context is optimized for support interactions rather than general conversation.
+</Accordion>
+
+<Accordion title="Sales Handler: Commercial Inquiries">
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { generateText } from "ai";
+
+export const salesTool = pickaxe.tool({
+  name: "sales-tool",
+  description: "Handles sales inquiries and pricing questions",
+  inputSchema: z.object({
+    message: z.string(),
+  }),
+  outputSchema: z.object({
+    response: z.string(),
+  }),
+  fn: async (input) => {
+    const result = await generateText({
+      model: pickaxe.defaultLanguageModel,
+      prompt: `You are a sales representative. Help the user with their sales inquiry. Our product costs $42. Be helpful and informative about features and pricing.
+
+User message: ${input.message}`,
+    });
+
+    return {
+      response: result.text,
+    };
+  },
+});
+```
+
+This handler specializes in sales conversations, including specific product information like pricing ($42) in the context. The prompt is optimized for sales scenarios rather than technical support, providing more relevant responses for commercial inquiries.
+</Accordion>
+</AccordionGroup>
+
+The pattern uses a two-step process: classification determines the request type, then specialized handlers provide domain-optimized responses. Each handler uses prompts and context tailored to its specific domain, improving response quality compared to a general-purpose agent. The `canHelp` boolean indicates whether the system can assist with the request.
+
+## Related Patterns
+
+This pattern complements prompt chaining for complex multi-step workflows and can be combined with parallelization when multiple handlers need to process the same request simultaneously.

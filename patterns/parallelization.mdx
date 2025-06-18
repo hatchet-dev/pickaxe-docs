@@ -1,0 +1,177 @@
+---
+title: "Parallelization"
+description: "Execute independent tasks simultaneously to improve speed and specialized processing"
+icon: "arrows-split-up-and-left"
+---
+
+import { CallGraphSequence } from "/snippets/call-graph.mdx";
+
+*Based on [Anthropic's "Building Effective Agents"](https://www.anthropic.com/engineering/building-effective-agents) framework.*
+
+Parallelization executes independent tasks simultaneously rather than sequentially, improving both speed and quality through specialized processing. Tasks that don't depend on each other can run concurrently, with results aggregated using various strategies like sectioning different concerns or voting for consensus-based decisions.
+
+export const parallelizationActors = [
+  { name: 'Client', left: 20 },
+  { name: 'Agent', left: 160 },
+  { name: 'Task 1', left: 300 },
+  { name: 'Task 2', left: 440 },
+  { name: 'Task 3', left: 580 }
+];
+
+export const parallelizationMessages = [
+  { from: 0, to: 1, label: 'request', top: 90, dashed: false },
+  { from: 1, to: 2, label: 'parallel execution', top: 119, dashed: false },
+  { from: 1, to: 3, label: 'parallel execution', top: 119, dashed: false },
+  { from: 1, to: 4, label: 'parallel execution', top: 119, dashed: false },
+  { from: 2, to: 1, label: 'result 1', top: 148, dashed: true },
+  { from: 3, to: 1, label: 'result 2', top: 148, dashed: true },
+  { from: 4, to: 1, label: 'result 3', top: 148, dashed: true },
+  { from: 1, to: 0, label: 'aggregated response', top: 177, dashed: true }
+];
+
+<CallGraphSequence actors={parallelizationActors} messages={parallelizationMessages} />
+
+## When to Use
+
+Use parallelization when you have independent tasks that can run simultaneously, such as content generation with safety checking, or multiple evaluations requiring consensus. It's ideal when specialized processing improves quality and when speed gains from concurrency outweigh coordination overhead. Avoid when tasks have dependencies or when the aggregation complexity exceeds the benefits.
+
+## Implementation
+
+This example demonstrates sectioning parallelization where appropriateness checking and main content generation run simultaneously, combining focused attention on different concerns with improved response time.
+
+### Agent Code
+
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { appropriatenessCheckTool } from "@tools/appropriateness.tool";
+import { mainContentTool } from "@tools/main-content.tool";
+
+const SectioningAgentInput = z.object({
+  message: z.string(),
+});
+
+const SectioningAgentOutput = z.object({
+  response: z.string(),
+  isAppropriate: z.boolean(),
+});
+
+export const sectioningAgent = pickaxe.agent({
+  name: "sectioning-agent",
+  executionTimeout: "2m",
+  inputSchema: SectioningAgentInput,
+  outputSchema: SectioningAgentOutput,
+  description: "Demonstrates parallel processing with sectioning approach",
+  fn: async (input, ctx) => {
+    // PARALLEL EXECUTION: Both tasks run simultaneously
+    const [{ isAppropriate, reason }, { mainContent }] = await Promise.all([
+      appropriatenessCheckTool.run({
+        message: input.message,
+      }),
+      mainContentTool.run({
+        message: input.message,
+      }),
+    ]);
+
+    // AGGREGATION: Combine results based on appropriateness check
+    if (!isAppropriate) {
+      return {
+        response: "I can't help with that request. Please ensure your message is appropriate and respectful.",
+        isAppropriate: false,
+      };
+    }
+
+    return {
+      response: mainContent,
+      isAppropriate: true,
+    };
+  },
+});
+```
+
+<AccordionGroup>
+<Accordion title="Appropriateness Check Tool: Safety Guardrail">
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { generateObject } from "ai";
+
+export const appropriatenessCheckTool = pickaxe.tool({
+  name: "appropriateness-check-tool",
+  description: "Evaluates message appropriateness and safety",
+  inputSchema: z.object({
+    message: z.string(),
+  }),
+  outputSchema: z.object({
+    isAppropriate: z.boolean(),
+    reason: z.string(),
+  }),
+  fn: async (input) => {
+    const result = await generateObject({
+      model: pickaxe.defaultLanguageModel,
+      prompt: `Evaluate if the following message is appropriate and safe:
+
+Criteria:
+- No harmful, offensive, or inappropriate content
+- Doesn't promote dangerous activities
+- Respectful and professional tone
+
+Message: ${input.message}
+
+Provide your assessment and reasoning.`,
+      schema: z.object({
+        isAppropriate: z.boolean(),
+        reason: z.string(),
+      }),
+    });
+
+    return {
+      isAppropriate: result.object.isAppropriate,
+      reason: result.object.reason,
+    };
+  },
+});
+```
+
+This tool runs in parallel with content generation, providing a safety guardrail without blocking the main processing. Using structured output ensures reliable boolean results for decision-making.
+</Accordion>
+
+<Accordion title="Main Content Tool: Response Generation">
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { generateText } from "ai";
+
+export const mainContentTool = pickaxe.tool({
+  name: "main-content-tool",
+  description: "Generates detailed, helpful responses",
+  inputSchema: z.object({
+    message: z.string(),
+  }),
+  outputSchema: z.object({
+    mainContent: z.string(),
+  }),
+  fn: async (input) => {
+    const result = await generateText({
+      model: pickaxe.defaultLanguageModel,
+      prompt: `You are a helpful assistant. Provide a detailed and informative response to the user's message. Be thorough, accurate, and directly address their question or request.
+
+User message: ${input.message}`,
+    });
+
+    return {
+      mainContent: result.text,
+    };
+  },
+});
+```
+
+This tool focuses solely on generating quality content without concern for safety filtering, allowing it to optimize for helpfulness and detail. The parallel execution means safety checking doesn't slow down content generation.
+</Accordion>
+</AccordionGroup>
+
+The pattern uses `Promise.all()` to execute independent tasks simultaneously, then aggregates results based on the appropriateness evaluation. This approach provides both speed benefits and specialized processing, with each tool focusing on its specific concern without coordination overhead.
+
+## Related Patterns
+
+This pattern works well with routing for handling different request types and can be combined with evaluator-optimizer for iterative improvement workflows where multiple evaluators provide parallel feedback.

@@ -1,0 +1,220 @@
+---
+title: "Evaluator-Optimizer"
+description: "Iteratively improve outputs through repeated evaluation and refinement cycles"
+icon: "arrows-rotate"
+---
+
+import { CallGraphSequence } from "/snippets/call-graph.mdx";
+
+*Based on [Anthropic's "Building Effective Agents"](https://www.anthropic.com/engineering/building-effective-agents) framework.*
+
+Evaluator-optimizer uses iterative cycles of generation and evaluation to improve output quality. One component generates content while another evaluates it and provides feedback, creating a loop that continues until the evaluator is satisfied or maximum iterations are reached. This pattern trades computational cost for higher quality results.
+
+export const evaluatorOptimizerActors = [
+  { name: 'Client', left: 20 },
+  { name: 'Agent', left: 160 },
+  { name: 'Generator', left: 300 },
+  { name: 'Evaluator', left: 440 },
+  { name: 'Iteration Control', left: 580 }
+];
+
+export const evaluatorOptimizerMessages = [
+  { from: 0, to: 1, label: 'request', top: 90, dashed: false },
+  { from: 1, to: 2, label: 'generate', top: 119, dashed: false },
+  { from: 2, to: 1, label: 'content', top: 148, dashed: true },
+  { from: 1, to: 3, label: 'evaluate', top: 177, dashed: false },
+  { from: 3, to: 1, label: 'feedback', top: 206, dashed: true },
+  { from: 1, to: 4, label: 'check iteration', top: 235, dashed: false },
+  { from: 4, to: 1, label: 'continue/stop', top: 264, dashed: true },
+  { from: 1, to: 0, label: 'final result', top: 293, dashed: true }
+];
+
+<CallGraphSequence actors={evaluatorOptimizerActors} messages={evaluatorOptimizerMessages} />
+
+## When to Use
+
+Use evaluator-optimizer when output quality can be measurably improved through iteration and when you have clear evaluation criteria. It's ideal for creative tasks like content generation, code optimization, or any scenario where first attempts can be systematically improved. Avoid when the cost of multiple iterations outweighs quality gains or when evaluation criteria are subjective and inconsistent.
+
+## Implementation
+
+This example demonstrates iterative social media post creation where a generator creates content and an evaluator provides feedback until the post meets quality standards or maximum iterations are reached.
+
+### Agent Code
+
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { generatorTool } from "@tools/generator.tool";
+import { evaluatorTool } from "@tools/evaluator.tool";
+
+const EvaluatorOptimizerAgentInput = z.object({
+  topic: z.string(),
+  targetAudience: z.string(),
+});
+
+const EvaluatorOptimizerAgentOutput = z.object({
+  post: z.string(),
+  iterations: z.number(),
+});
+
+export const evaluatorOptimizerAgent = pickaxe.agent({
+  name: "evaluator-optimizer-agent",
+  executionTimeout: "2m",
+  inputSchema: EvaluatorOptimizerAgentInput,
+  outputSchema: EvaluatorOptimizerAgentOutput,
+  description: "Iteratively improves content through evaluation and optimization cycles",
+  fn: async (input, ctx) => {
+    let currentPost = "";
+    let previousFeedback = "";
+    const maxIterations = 3;
+
+    // ITERATIVE IMPROVEMENT LOOP
+    for (let iteration = 1; iteration <= maxIterations; iteration++) {
+      // GENERATION PHASE: Create or improve content
+      const { post } = await generatorTool.run({
+        topic: input.topic,
+        targetAudience: input.targetAudience,
+        previousPost: currentPost || undefined,
+        previousFeedback: previousFeedback || undefined,
+      });
+
+      currentPost = post;
+
+      // EVALUATION PHASE: Assess quality and get feedback
+      const { complete, feedback } = await evaluatorTool.run({
+        post: currentPost,
+        topic: input.topic,
+        targetAudience: input.targetAudience,
+      });
+
+      // TERMINATION CHECK: Stop if evaluator is satisfied
+      if (complete) {
+        return {
+          post: currentPost,
+          iterations: iteration,
+        };
+      }
+
+      previousFeedback = feedback;
+    }
+
+    // FALLBACK: Return best attempt if max iterations reached
+    if (!currentPost) {
+      throw new Error("Failed to generate any post after maximum iterations");
+    }
+
+    return {
+      post: currentPost,
+      iterations: maxIterations,
+    };
+  },
+});
+```
+
+<AccordionGroup>
+<Accordion title="Generator Tool: Content Creation and Improvement">
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { generateText } from "ai";
+
+export const generatorTool = pickaxe.tool({
+  name: "generator-tool",
+  description: "Generates or improves social media content",
+  inputSchema: z.object({
+    topic: z.string(),
+    targetAudience: z.string(),
+    previousPost: z.string().optional(),
+    previousFeedback: z.string().optional(),
+  }),
+  outputSchema: z.object({
+    post: z.string(),
+  }),
+  fn: async (input) => {
+    let prompt = `Create a social media post about "${input.topic}" for the target audience: ${input.targetAudience}. Keep it under 100 words and make it engaging.`;
+
+    // ITERATIVE IMPROVEMENT: Incorporate previous feedback
+    if (input.previousPost && input.previousFeedback) {
+      prompt = `Improve this social media post based on the feedback provided.
+
+Original post: ${input.previousPost}
+Feedback: ${input.previousFeedback}
+Topic: ${input.topic}
+Target audience: ${input.targetAudience}
+
+Create an improved version that addresses the feedback while keeping it under 100 words.`;
+    }
+
+    const result = await generateText({
+      model: pickaxe.defaultLanguageModel,
+      prompt,
+    });
+
+    return {
+      post: result.text,
+    };
+  },
+});
+```
+
+This tool handles both initial generation and iterative improvement. When previous feedback is available, it focuses on addressing specific issues while maintaining the core message and constraints.
+</Accordion>
+
+<Accordion title="Evaluator Tool: Quality Assessment and Feedback">
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+import { generateObject } from "ai";
+
+export const evaluatorTool = pickaxe.tool({
+  name: "evaluator-tool",
+  description: "Evaluates content quality and provides improvement feedback",
+  inputSchema: z.object({
+    post: z.string(),
+    topic: z.string(),
+    targetAudience: z.string(),
+  }),
+  outputSchema: z.object({
+    complete: z.boolean(),
+    feedback: z.string(),
+  }),
+  fn: async (input) => {
+    const result = await generateObject({
+      model: pickaxe.defaultLanguageModel,
+      prompt: `Evaluate this social media post for quality and appropriateness:
+
+Post: ${input.post}
+Topic: ${input.topic}
+Target Audience: ${input.targetAudience}
+
+Assess whether the post:
+- Is safe and appropriate
+- Effectively addresses the topic
+- Appeals to the target audience
+- Meets platform guidelines
+- Is ready for publication
+
+If the post needs improvement, provide specific feedback. If it's ready, mark as complete.`,
+      schema: z.object({
+        complete: z.boolean(),
+        feedback: z.string(),
+      }),
+    });
+
+    return {
+      complete: result.object.complete,
+      feedback: result.object.feedback,
+    };
+  },
+});
+```
+
+This tool provides objective evaluation against clear criteria, determining both whether iteration should continue and providing specific feedback for improvement. The structured output ensures reliable termination decisions.
+</Accordion>
+</AccordionGroup>
+
+The pattern implements a controlled iteration loop with clear termination criteria: evaluator satisfaction or maximum iterations reached. Each cycle builds on previous attempts, creating progressively better outputs through systematic feedback incorporation.
+
+## Related Patterns
+
+This pattern combines well with parallelization when multiple evaluators provide different perspectives, and can be enhanced with routing to direct different content types to specialized generators and evaluators.

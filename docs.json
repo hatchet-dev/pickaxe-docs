@@ -19,15 +19,25 @@
           },
           {
             "group": "Concepts",
-            "pages": ["concepts/agents", "concepts/toolbox", "concepts/tools"]
+            "pages": [
+              "concepts/overview",
+              "concepts/agents",
+              "concepts/tools",
+              "concepts/toolbox"
+            ]
           },
           {
             "group": "Development",
-            "pages": []
+            "pages": ["development/developing-agents"]
           },
           {
             "group": "Patterns",
-            "pages": []
+            "pages": [
+              "patterns/prompt-chaining",
+              "patterns/routing",
+              "patterns/parallelization",
+              "patterns/evaluator-optimizer"
+            ]
           },
           {
             "group": "Deployment",
@@ -37,8 +47,8 @@
             "group": "API Reference",
             "pages": [
               "api-reference/agent",
-              "api-reference/toolbox",
-              "api-reference/tool"
+              "api-reference/tool",
+              "api-reference/toolbox"
             ]
           },
           {

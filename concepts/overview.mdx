@@ -1,0 +1,23 @@
+---
+title: "Overview"
+description: "An overview of the Pickaxe execution model."
+icon: "book"
+---
+
+import { CallGraphSequence, AgentRunCallGraph } from "/snippets/call-graph.mdx";
+
+Before diving into the details of Pickaxe, it's helpful to understand the overall execution model. There are two main objects in Pickaxe: **agents** and **tools**. Every time an agent or tool execution is invoked, it is passed through a durable task queue called **Hatchet**, which stores the agent as a task and makes sure that it executes.
+
+Agents and tools run on a **machine**, which is simply a container which is able to run the agent or tool code. Pickaxe does not impose any constraints on where the code actually executes, so it can be run anywhere you'd like: on a platform like Railway, Fly.io, Porter, a container runtime like Kubernetes, or even a self-hosted fleet of machines (like a bunch of Mac Minis running in your closet).
+
+Here's an overview of what happens when an agent is called via `agent.run()`:
+
+<AgentRunCallGraph />
+
+The behavior is similar for tool-calling; when an agent decides to call a tool via `tool.run()` or using a [toolbox](./toolbox), this call is also passed through the Hatchet task queue. A detailed call graph for an end-to-end application using an agent may look something like this:
+
+<CallGraphSequence />
+
+# Delivery Guarantees
+
+For those familiar with delivery guarantees, Pickaxe guarantees **at-least once delivery**. While Pickaxe does its best to guarantee **exactly-once processing semantics**, it is not possible to guarantee this in the event of a machine network failure, which means that tasks should be written to be idempotent.

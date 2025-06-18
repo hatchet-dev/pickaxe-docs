@@ -1,0 +1,244 @@
+export const CallGraphSequence = (props) => {
+  const actors = [
+    { name: 'User', left: 20 },
+    { name: 'Your API', left: 160 },
+    { name: 'Agent', left: 300 },
+    { name: 'Tool', left: 440 },
+    { name: 'Business Logic', left: 580 }
+  ];
+
+const messages = [
+{ from: 0, to: 1, label: 'API Request', top: 90, dashed: false },
+{ from: 1, to: 2, label: 'agent.run()', top: 119, dashed: false, link: '/api-reference/agent' },
+{ from: 2, to: 3, label: 'tool.run()', top: 148, dashed: false, link: '/api-reference/tool' },
+{ from: 3, to: 4, label: 'External Call', top: 177, dashed: false },
+{ from: 4, to: 3, label: 'Response', top: 206, dashed: true },
+{ from: 3, to: 2, label: 'Tool Result', top: 235, dashed: true },
+{ from: 2, to: 1, label: 'Agent Response', top: 264, dashed: true },
+{ from: 1, to: 0, label: 'API Response', top: 293, dashed: true }
+];
+
+const actorData = props && props.actors ? props.actors : actors;
+const messageData = props && props.messages ? props.messages : messages;
+
+const config = {
+actorTop: 30,
+actorWidth: 80,
+lifelineTop: 60,
+lifelineHeight: 275,
+lifelineOffset: 40,
+messageSpacing: 140
+};
+
+return (
+<div className="call-graph-container">
+<div className="call-graph-canvas">
+{actorData.map((actor, index) => (
+<div
+key={index}
+className="call-graph-actor"
+style={{
+              top: config.actorTop,
+              left: actor.left,
+              width: config.actorWidth
+            }} >
+{actor.name}
+</div>
+))}
+
+        {actorData.map((actor, index) => (
+          <div
+            key={index}
+            className="call-graph-lifeline"
+            style={{
+              top: config.lifelineTop,
+              left: actor.left + config.lifelineOffset,
+              height: config.lifelineHeight
+            }}
+          ></div>
+        ))}
+
+        {messageData.map((message, index) => {
+          const fromActor = actorData[message.from];
+          const toActor = actorData[message.to];
+          const isReturn = message.from > message.to;
+          const messageLeft = isReturn ? toActor.left + config.lifelineOffset + 6 : fromActor.left + config.lifelineOffset;
+          const messageWidth = isReturn ?
+            (fromActor.left + config.lifelineOffset) - (toActor.left + config.lifelineOffset + 6) :
+            (toActor.left + config.lifelineOffset) - (fromActor.left + config.lifelineOffset);
+
+          return (
+            <div
+              key={index}
+              className="call-graph-message"
+              style={{
+                top: message.top,
+                left: messageLeft,
+                width: messageWidth
+              }}
+            >
+              <div
+                className={`call-graph-message-line ${message.dashed ? 'dashed' : ''}`}
+                style={{ width: '100%' }}
+              ></div>
+              <div
+                className={`call-graph-arrow ${isReturn ? 'return' : ''}`}
+                style={{
+                  position: 'absolute',
+                  [isReturn ? 'left' : 'right']: isReturn ? -4 : -3,
+                  top: -2
+                }}
+              ></div>
+              {message.link ? (
+                <a
+                  href={message.link}
+                  className="call-graph-message-label"
+                  style={{
+                    position: 'absolute',
+                    top: -12,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    textDecoration: 'none'
+                  }}
+                >
+                  {message.label}
+                </a>
+              ) : (
+                <div
+                  className="call-graph-message-label"
+                  style={{
+                    position: 'absolute',
+                    top: -12,
+                    left: '50%',
+                    transform: 'translateX(-50%)'
+                  }}
+                >
+                  {message.label}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+
+);
+};
+
+export const AgentRunCallGraph = () => {
+  const actors = [
+    { name: 'Your API', left: 80 },
+    { name: 'Hatchet', left: 280 },
+    { name: 'Machine', left: 480 }
+  ];
+
+const messages = [
+{ from: 0, to: 1, label: 'agent.run()', top: 90, dashed: false, link: '/api-reference/agent' },
+{ from: 1, to: 2, label: 'Execute Agent', top: 119, dashed: false },
+{ from: 2, to: 1, label: 'Agent Result', top: 148, dashed: true },
+{ from: 1, to: 0, label: 'Response', top: 177, dashed: true }
+];
+
+const config = {
+actorTop: 30,
+actorWidth: 100,
+lifelineTop: 60,
+lifelineHeight: 200,
+lifelineOffset: 50,
+messageSpacing: 140
+};
+
+return (
+<div className="call-graph-container">
+<div className="call-graph-canvas" style={{ height: 250 }}>
+{actors.map((actor, index) => (
+<div
+key={index}
+className="call-graph-actor"
+style={{
+              top: config.actorTop,
+              left: actor.left,
+              width: config.actorWidth
+            }} >
+{actor.name}
+</div>
+))}
+
+        {actors.map((actor, index) => (
+          <div
+            key={index}
+            className="call-graph-lifeline"
+            style={{
+              top: config.lifelineTop,
+              left: actor.left + config.lifelineOffset,
+              height: config.lifelineHeight
+            }}
+          ></div>
+        ))}
+
+        {messages.map((message, index) => {
+          const fromActor = actors[message.from];
+          const toActor = actors[message.to];
+          const isReturn = message.from > message.to;
+          const messageLeft = isReturn ? toActor.left + config.lifelineOffset + 6 : fromActor.left + config.lifelineOffset;
+          const messageWidth = isReturn ?
+            (fromActor.left + config.lifelineOffset) - (toActor.left + config.lifelineOffset + 6) :
+            (toActor.left + config.lifelineOffset) - (fromActor.left + config.lifelineOffset);
+
+          return (
+            <div
+              key={index}
+              className="call-graph-message"
+              style={{
+                top: message.top,
+                left: messageLeft,
+                width: messageWidth
+              }}
+            >
+              <div
+                className={`call-graph-message-line ${message.dashed ? 'dashed' : ''}`}
+                style={{ width: '100%' }}
+              ></div>
+              <div
+                className={`call-graph-arrow ${isReturn ? 'return' : ''}`}
+                style={{
+                  position: 'absolute',
+                  [isReturn ? 'left' : 'right']: isReturn ? -4 : -3,
+                  top: -2
+                }}
+              ></div>
+              {message.link ? (
+                <a
+                  href={message.link}
+                  className="call-graph-message-label"
+                  style={{
+                    position: 'absolute',
+                    top: -12,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    textDecoration: 'none'
+                  }}
+                >
+                  {message.label}
+                </a>
+              ) : (
+                <div
+                  className="call-graph-message-label"
+                  style={{
+                    position: 'absolute',
+                    top: -12,
+                    left: '50%',
+                    transform: 'translateX(-50%)'
+                  }}
+                >
+                  {message.label}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+
+);
+};

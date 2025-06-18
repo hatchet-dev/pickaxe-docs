@@ -15,7 +15,7 @@ The `pickaxe.tool` method creates a new tool that can be used by agents in Picka
 
 ```typescript
 import { z } from "zod";
-import { pickaxe } from "@/pickaxe-client";
+import { pickaxe } from "@hatchet-dev/pickaxe";
 
 export const myTool = pickaxe.tool({
   name: "my-tool",
@@ -51,20 +51,20 @@ export const myTool = pickaxe.tool({
 
 ## Parameters
 
-| Parameter          | Type                                                                         | Required | Description                                                                                                                  |
-| ------------------ | ---------------------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `name`             | `string`                                                                     | Yes      | A unique identifier for the tool. Used for tool registration and selection by agents.                                        |
-| `description`      | `string`                                                                     | Yes      | A human-readable description of what the tool does. Used by language models to decide when to use the tool.                  |
-| `inputSchema`      | `ZodType`                                                                    | Yes      | Zod schema that defines and validates the input structure for the tool.                                                      |
-| `outputSchema`     | `ZodType`                                                                    | Yes      | Zod schema that defines and validates the output structure returned by the tool.                                             |
-| `fn`               | `(input: z.infer<InputSchema>, ctx?: any) => Promise<z.infer<OutputSchema>>` | Yes      | The main tool function that processes input and returns output. Receives validated input and optional context.               |
-| `executionTimeout` | `string`                                                                     | No       | Execution timeout duration for the tool after it starts running. Go duration format (e.g., "1s", "5m", "1h"). Default: "60s" |
-| `scheduleTimeout`  | `string`                                                                     | No       | Schedule timeout for the tool (max duration to allow the tool to wait in the queue). Go duration format. Default: "5m"       |
-| `retries`          | `number`                                                                     | No       | Number of retries for the tool. Default: 0                                                                                   |
-| `concurrency`      | [`Concurrency`](#concurrency-type) \| [`Concurrency[]`](#concurrency-type)   | No       | Concurrency configuration for the tool. Controls how many concurrent executions are allowed.                                 |
-| `defaultPriority`  | `Priority`                                                                   | No       | The priority for the tool. Values: Priority.LOW (1), Priority.MEDIUM (2), Priority.HIGH (3)                                  |
-| `onCrons`          | `string[]`                                                                   | No       | Cron config for the tool.                                                                                                    |
-| `onEvents`         | `string[]`                                                                   | No       | Event config for the tool.                                                                                                   |
+| Parameter          | Type                                                                             | Required | Description                                                                                                                  |
+| ------------------ | -------------------------------------------------------------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `name`             | `string`                                                                         | Yes      | A unique identifier for the tool. Used for tool registration and selection by agents.                                        |
+| `description`      | `string`                                                                         | Yes      | A human-readable description of what the tool does. Used by language models to decide when to use the tool.                  |
+| `inputSchema`      | `ZodType`                                                                        | Yes      | Zod schema that defines and validates the input structure for the tool.                                                      |
+| `outputSchema`     | `ZodType`                                                                        | Yes      | Zod schema that defines and validates the output structure returned by the tool.                                             |
+| `fn`               | `(input: z.infer<InputSchema>, ctx?: Context) => Promise<z.infer<OutputSchema>>` | Yes      | The main tool function that processes input and returns output. Receives validated input and optional [Context](#context).   |
+| `executionTimeout` | `string`                                                                         | No       | Execution timeout duration for the tool after it starts running. Go duration format (e.g., "1s", "5m", "1h"). Default: "60s" |
+| `scheduleTimeout`  | `string`                                                                         | No       | Schedule timeout for the tool (max duration to allow the tool to wait in the queue). Go duration format. Default: "5m"       |
+| `retries`          | `number`                                                                         | No       | Number of retries for the tool. Default: 0                                                                                   |
+| `concurrency`      | [`Concurrency`](#concurrency-type) \| [`Concurrency[]`](#concurrency-type)       | No       | Concurrency configuration for the tool. Controls how many concurrent executions are allowed.                                 |
+| `defaultPriority`  | `Priority`                                                                       | No       | The priority for the tool. Values: Priority.LOW (1), Priority.MEDIUM (2), Priority.HIGH (3)                                  |
+| `onCrons`          | `string[]`                                                                       | No       | Cron config for the tool.                                                                                                    |
+| `onEvents`         | `string[]`                                                                       | No       | Event config for the tool.                                                                                                   |
 
 ### Concurrency Type
 
@@ -177,6 +177,45 @@ Creates a cron schedule for recurring tool execution.
 | -------------------- | ------------------------ | -------- | --------------------------------------------------------------------------------------------------- |
 | `additionalMetadata` | `Record<string, string>` | No       | Additional metadata to attach to the workflow run                                                   |
 | `priority`           | `Priority`               | No       | The priority for the workflow run. Values: Priority.LOW (1), Priority.MEDIUM (2), Priority.HIGH (3) |
+
+## Context
+
+The optional `ctx` parameter in the tool function provides access to the Hatchet workflow execution context. When present, it offers comprehensive capabilities for workflow management, logging, and execution control.
+
+### Core Properties
+
+| Property              | Type                        | Description                                           |
+| --------------------- | --------------------------- | ----------------------------------------------------- |
+| `input`               | `T`                         | The original input data for the tool                  |
+| `workflowRunId()`     | `() => string`              | Gets the ID of the current workflow run               |
+| `workflowName()`      | `() => string`              | Gets the name of the current workflow                 |
+| `taskName()`          | `() => string`              | Gets the name of the current running task             |
+| `taskRunId()`         | `() => string`              | Gets the ID of the current task run                   |
+| `workflowId()`        | `() => string \| undefined` | Gets the workflow ID                                  |
+| `workflowVersionId()` | `() => string \| undefined` | Gets the workflow version ID                          |
+| `cancelled`           | `boolean`                   | Gets cancellation status                              |
+| `controller`          | `AbortController`           | The abort controller for the current task             |
+| `logger`              | `Logger`                    | Structured logging methods (info, debug, warn, error) |
+
+### Execution Control Methods
+
+| Method             | Parameters              | Returns         | Description                                                |
+| ------------------ | ----------------------- | --------------- | ---------------------------------------------------------- |
+| `cancel()`         | None                    | `Promise<void>` | Cancels the current task                                   |
+| `refreshTimeout()` | `incrementBy: Duration` | `Promise<void>` | Refreshes the timeout for the current task                 |
+| `retryCount()`     | None                    | `number`        | Gets the number of times the current task has been retried |
+
+### Logging & Data Methods
+
+| Method                 | Parameters                   | Returns                  | Description                                                             |
+| ---------------------- | ---------------------------- | ------------------------ | ----------------------------------------------------------------------- |
+| `putStream()`          | `data: string \| Uint8Array` | `Promise<void>`          | Streams data from the current task run                                  |
+| `additionalMetadata()` | None                         | `Record<string, string>` | Retrieves additional metadata                                           |
+| `errors()`             | None                         | `Record<string, string>` | Returns errors from any task runs in the workflow                       |
+| `triggers()`           | None                         | `TriggerData`            | Gets the dag conditional triggers for the current workflow run          |
+| `filterPayload()`      | None                         | `Record<string, any>`    | Gets the payload from the filter that matched when triggering the event |
+| `triggeredByEvent()`   | None                         | `boolean`                | Determines if the workflow was triggered by an event                    |
+| `priority()`           | None                         | `Priority \| undefined`  | Gets the priority of the workflow                                       |
 
 ## Related
 

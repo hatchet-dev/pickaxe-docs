@@ -1,5 +1,109 @@
 ---
 title: "Tools"
-description: "Tools are methods which are available to an agent."
-icon: "code"
+description: "Tools are functions that perform specific tasks and can be called by agents."
+icon: "wrench"
 ---
+
+In Pickaxe, a tool is a function that performs a specific task and can be called by agents. Tools handle the actual work while agents orchestrate their execution.
+
+# Creating a Tool
+
+To create a tool, define the input and output schemas using [Zod](https://zod.dev/). Each Zod field should include a description to improve LLM tool selection when used in a [toolbox](./toolbox).
+
+```ts
+import z from "zod";
+
+const MyToolInput = z.object({
+  message: z.string().describe("The message to process"),
+});
+
+const MyToolOutput = z.object({
+  result: z.string().describe("The processed result"),
+});
+```
+
+Create the tool using the [`pickaxe.tool`](/api-reference/tool) method:
+
+```ts
+export const myTool = pickaxe.tool({
+  name: "my-tool",
+  description: "Processes messages and returns results",
+  inputSchema: MyToolInput,
+  outputSchema: MyToolOutput,
+  fn: async (input) => {
+    // Tool logic here - API calls, data processing, etc.
+    return {
+      result: `Processed: ${input.message}`,
+    };
+  },
+});
+```
+
+Tools can perform side effects like API calls, database operations, or file system access. Unlike agents, tools are designed to do the actual work and can maintain state as needed.
+
+# Running a Tool
+
+Tools can be executed directly using several methods. The most common is `run`, which executes the tool and waits for completion:
+
+```ts
+const result = await myTool.run({
+  message: "Hello, world!",
+});
+
+console.log(result.result); // "Processed: Hello, world!"
+```
+
+For fire-and-forget scenarios, use `runNoWait` to trigger execution without waiting:
+
+```ts
+const runRef = await myTool.runNoWait({
+  message: "Background task",
+});
+
+console.log(`Started run: ${runRef.workflowRunId}`);
+```
+
+Tools can also be scheduled to run at specific times or on recurring schedules:
+
+```ts
+// Schedule to run at a specific time
+const scheduledRun = await myTool.schedule(new Date("2024-12-25T09:00:00Z"), {
+  message: "Christmas task",
+});
+
+// Schedule with a delay
+const delayedRun = await myTool.delay(
+  300, // 300 seconds = 5 minutes
+  { message: "Delayed task" }
+);
+
+// Set up recurring cron schedule
+const cronRun = await myTool.cron(
+  "daily-cleanup",
+  "0 2 * * *", // Every day at 2 AM
+  { message: "Daily cleanup task" }
+);
+```
+
+# Using Tools in Agents
+
+Tools are typically called from within agents using the tool's `run` method:
+
+```ts
+export const myAgent = pickaxe.agent({
+  name: "my-agent",
+  inputSchema: z.object({ message: z.string() }),
+  outputSchema: z.object({ response: z.string() }),
+  fn: async (input, ctx) => {
+    const { result } = await myTool.run({
+      message: input.message,
+    });
+
+    return {
+      response: result,
+    };
+  },
+});
+```
+
+This approach allows agents to orchestrate tool execution while maintaining durability and fault tolerance.

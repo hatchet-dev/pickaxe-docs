@@ -1,5 +1,101 @@
 ---
 title: "Agents"
-description: "Agents are processes which execute tools in a loop."
+description: "Agents are functions which call other tools and agents."
 icon: "person"
 ---
+
+In Pickaxe, an agent is simply a function which can call other tools and agents, with a few additional special properties (see [best practices](#best-practices%3A-no-side-effects)).
+
+# Creating an Agent
+
+To create an agent, you first need to define the input and output schema for your agent via [Zod](https://zod.dev/). This allows for full type safety and validation of the input and output of your agent. Note that it is recommended for each Zod field to have a description, as this improves the LLM generation of the input when called from a [toolbox](./toolbox).
+
+```ts
+import z from "zod";
+
+const MyAgentInput = z.object({
+  message: z.string().describe("The message to process"),
+});
+
+const MyAgentOutput = z.object({
+  message: z.string().describe("The processed message"),
+});
+```
+
+The next step is to define the agent itself using the [`pickaxe.agent`](/api-reference/agent) method:
+
+```ts
+export const myAgent = pickaxe.agent({
+  name: "my-agent",
+  inputSchema: MyAgentInput,
+  outputSchema: MyAgentOutput,
+  description: "Processes messages using available tools",
+  fn: async (input, ctx) => {
+    // Agent logic here - call tools, other agents, or toolbox
+    return {
+      message: `Processed: ${input.message}`,
+    };
+  },
+});
+```
+
+Within the agent method, you can call other tools, agents, or pick a tool from the toolbox, which uses the AI SDK under the hood for tool selection. See [tools](./tools) and [toolbox](./toolbox) for more information on how to define and call tools.
+
+# Running an Agent
+
+To run an agent, you can use a set of methods available on the agent object. The most common method is `run`, which executes the agent with the provided input and awaits the result:
+
+```ts
+const result = await myAgent.run({
+  message: "Hello, world!",
+});
+
+console.log(result.message); // "Processed: Hello, world!"
+```
+
+You can also trigger an agent but not await its result using the `runNoWait` method. This is useful for fire-and-forget scenarios where you don't need to wait for the agent to finish executing:
+
+```ts
+const runRef = await myAgent.runNoWait({
+  message: "Background task",
+});
+
+console.log(`Started run: ${runRef.workflowRunId}`);
+```
+
+Additionally, you can schedule the agent to run either on a cron schedule or at a specific time using the `schedule` method. This is useful for recurring tasks or one-time scheduled agents:
+
+```ts
+// Schedule to run at a specific time
+const scheduledRun = await myAgent.schedule(new Date("2024-12-25T09:00:00Z"), {
+  message: "Christmas greeting",
+});
+
+// Schedule with a delay
+const delayedRun = await myAgent.delay(
+  300, // 300 seconds = 5 minutes
+  { message: "Delayed message" }
+);
+
+// Set up recurring cron schedule
+const cronRun = await myAgent.cron(
+  "daily-summary",
+  "0 9 * * *", // Every day at 9 AM
+  { message: "Daily summary" }
+);
+```
+
+# Best Practices: No Side Effects
+
+The most important rule of agents is:
+
+_Agents should be stateless reducers with no side effects. This means that they do not maintain any internal state between calls, and their output is solely determined by the input they receive and the tools they call._
+
+Why does this matter? This rule allows for several important properties to build more scalable and fault-tolerant agents:
+
+1. **Durability**: because there are no side effects, agents can automatically cache their state every time they make a call to a tool or a different agent. This means that if the underlying machine fails, the agent can be resumed from the last cached state without losing any progress.
+2. **Distributed execution**: when agents don't have an internal state, any machine which is able to run the agent can execute it.
+
+Building your agent with this execution model also allows for separation of concerns: the agent is solely in charge of orchestrating the execution of tools, while the tools themselves are responsible for performing the actual work.
+
+This can be a tricky paradigm to work with: even database reads are not allowed, as they risk introducing side effects and non-determinism. However, it is perfectly valid to look up data from a database in a tool or a separate task call.

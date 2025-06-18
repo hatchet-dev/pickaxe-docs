@@ -1,5 +1,109 @@
 ---
 title: "Toolbox"
-description: "A toolbox is a collection of tools available to an agent."
+description: "A toolbox is a collection of tools with AI-powered selection capabilities."
 icon: "toolbox"
 ---
+
+In Pickaxe, a toolbox is a collection of tools that enables AI-powered tool selection. Instead of manually calling specific tools, agents can describe what they want to accomplish, and the toolbox will intelligently select and execute the most appropriate tools.
+
+# Creating a Toolbox
+
+Create a toolbox by passing an array of tools to the [`pickaxe.toolbox`](/api-reference/toolbox) method:
+
+```ts
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import { myTool, anotherTool, calculatorTool } from "@tools";
+
+export const myToolbox = pickaxe.toolbox({
+  tools: [
+    myTool,
+    anotherTool,
+    calculatorTool,
+  ],
+});
+```
+
+The toolbox automatically makes all included tools available for AI selection during agent execution.
+
+# Using a Toolbox
+
+## Tool Selection and Execution
+
+Use `pickAndRun` to let the AI select and execute the most appropriate tool based on a natural language prompt:
+
+```ts
+export const myAgent = pickaxe.agent({
+  name: "my-agent",
+  inputSchema: z.object({ message: z.string() }),
+  outputSchema: z.object({ response: z.string() }),
+  fn: async (input, ctx) => {
+    const result = await myToolbox.pickAndRun(ctx, {
+      prompt: input.message,
+    });
+
+    switch (result.name) {
+      case "myTool":
+        return { response: `Tool result: ${result.output}` };
+      case "anotherTool":
+        return { response: `Another result: ${result.output}` };
+      case "calculatorTool":
+        return { response: `Calculation: ${result.output}` };
+      default:
+        return myToolbox.assertExhaustive(result);
+    }
+  },
+});
+```
+
+## Tool Selection Only
+
+Use `pick` to select tools without executing them, useful when you need to inspect the selection before execution:
+
+```ts
+const selections = await myToolbox.pick(ctx, {
+  prompt: "Calculate the square root of 16",
+});
+
+// selections contains the selected tool names and generated inputs
+console.log(selections); // [{ name: "calculatorTool", input: { operation: "sqrt", value: 16 } }]
+```
+
+## Multiple Tool Selection
+
+Select and execute multiple tools by specifying `maxTools`:
+
+```ts
+const results = await myToolbox.pickAndRun(ctx, {
+  prompt: "Process the data and then send a notification",
+  maxTools: 2,
+});
+
+// results is an array when maxTools > 1
+results.forEach(result => {
+  console.log(`${result.name}: ${result.output}`);
+});
+```
+
+# Using Toolboxes in Agents
+
+Toolboxes operate within agent contexts for tool selection based on agent requirements:
+
+```ts
+export const smartAgent = pickaxe.agent({
+  name: "smart-agent",
+  inputSchema: z.object({ task: z.string() }),
+  outputSchema: z.object({ result: z.string() }),
+  fn: async (input, ctx) => {
+    // The AI selects the appropriate tool for the task
+    const result = await myToolbox.pickAndRun(ctx, {
+      prompt: `Help me with this task: ${input.task}`,
+    });
+
+    return {
+      result: `Completed using ${result.name}: ${result.output}`,
+    };
+  },
+});
+```
+
+This approach allows agents to use different tools based on the requirements of each request.
