@@ -8,7 +8,7 @@ The `pickaxe.toolbox` method creates a new toolbox that contains a collection of
 
 ## Quick Reference
 
-- **Tool selection methods**: [`pick()`](#pick-ctx%2C-options), [`pickAndRun()`](#pickandrun-ctx%2C-options)
+- **Tool selection methods**: [`pick()`](#pick-options), [`pickAndRun()`](#pickandrun-options)
 - **Utility methods**: [`assertExhaustive()`](#assertexhaustive-result), [`getTools()`](#gettools)
 
 ## Usage Example
@@ -17,12 +17,12 @@ The `pickaxe.toolbox` method creates a new toolbox that contains a collection of
 import { pickaxe } from "@hatchet-dev/pickaxe";
 import z from "zod";
 // Import your tools
-import { myTool, anotherTool } from "@/tools";
+import { searchTool, emailTool } from "@/tools";
 
 export const myToolbox = pickaxe.toolbox({
   tools: [
-    myTool,
-    anotherTool,
+    searchTool,
+    emailTool,
     // Add more tools here
   ],
 });
@@ -30,8 +30,12 @@ export const myToolbox = pickaxe.toolbox({
 export const myAgent = pickaxe.agent({
   name: "my-agent",
   executionTimeout: "15m",
-  inputSchema: z.object({ message: z.string() }),
-  outputSchema: z.object({ message: z.string() }),
+  inputSchema: z.object({
+    message: z.string().describe("The user's request message"),
+  }),
+  outputSchema: z.object({
+    message: z.string().describe("The agent's response message"),
+  }),
   description: "An agent that uses tools from a toolbox",
   fn: async (input, ctx) => {
     const result = await myToolbox.pickAndRun({
@@ -39,13 +43,13 @@ export const myAgent = pickaxe.agent({
     });
 
     switch (result.name) {
-      case "myTool":
+      case "searchTool":
         return {
-          message: `Tool result: ${result.output}`,
+          message: `Search results: ${result.output.results.join(", ")}`,
         };
-      case "anotherTool":
+      case "emailTool":
         return {
-          message: `Another result: ${result.output}`,
+          message: `Email sent: ${result.output.status}`,
         };
       default:
         return myToolbox.assertExhaustive(result);
@@ -66,6 +70,13 @@ export default [myAgent, myToolbox];
 
 The `tools` parameter accepts an array of [`ToolDeclaration`](/api-reference/tool) objects created with [`pickaxe.tool()`](/api-reference/tool).
 
+| Property       | Type      | Description                               |
+| -------------- | --------- | ----------------------------------------- |
+| `inputSchema`  | `ZodType` | The Zod schema used for input validation  |
+| `outputSchema` | `ZodType` | The Zod schema used for output validation |
+| `description`  | `string`  | The description of the tool               |
+| `name`         | `string`  | The unique name identifier for the tool   |
+
 ## Returns
 
 The `pickaxe.toolbox` method returns a `Toolbox<T>` object with the following [properties](#properties) and [methods](#methods):
@@ -74,25 +85,24 @@ The `pickaxe.toolbox` method returns a `Toolbox<T>` object with the following [p
 
 | Property       | Type                        | Description                                                                          |
 | -------------- | --------------------------- | ------------------------------------------------------------------------------------ |
-| `toolSetForAI` | `ToolSet`                   | AI-ready toolset used internally by language models for tool selection               |
+| `toolSetForAI` | [`ToolSet`](#toolset-type)  | AI-ready toolset used internally by language models for tool selection               |
 | `register`     | `TaskWorkflowDeclaration[]` | All user-supplied tool declarations plus internal workflows for Hatchet registration |
 
 ### Methods
 
-#### `pick(ctx, options)`
+#### `pick(options)`
 
 Uses the language model to choose up to `maxTools` tools from this toolbox that best satisfy the provided prompt. Only tool selection is performed—no execution happens.
 
 **Parameters:**
 
-- `ctx`: `DurableContext<any> | Context<any>` - Durable context provided by the Hatchet runtime
 - `options`: [`PickInput`](#pickinput-type) - Configuration for tool selection
 
 **Returns:** `Promise<Array<{ name: string, input: any }>>` - Array containing chosen tool names with generated input arguments
 
 #### `pickAndRun(options)`
 
-Convenience method that first runs [`pick()`](#pickctx-options) and then immediately executes the chosen tool(s).
+Convenience method that first runs [`pick()`](#pick-options) and then immediately executes the chosen tool(s).
 
 **Type Overloads:**
 
@@ -101,7 +111,6 @@ Convenience method that first runs [`pick()`](#pickctx-options) and then immedia
 
 **Parameters:**
 
-- `ctx`: `DurableContext<any> | Context<any>` - Durable context provided by the Hatchet runtime
 - `options`: [`PickInput`](#pickinput-type) - Configuration for tool selection and execution
 
 **Returns:** `Promise<ToolResultMap<T> | ToolResultMap<T>[]>` - Single tool result or array of results depending on `maxTools`
@@ -135,13 +144,11 @@ Gets the original tool declarations used internally by the pick-tool workflow.
 
 The `ToolResultMap<T>` is a discriminated union type that provides type-safe access to tool results:
 
-```typescript
-type ToolResultMap<T> = {
-  name: string; // The name of the executed tool
-  output: any; // The output from the tool execution
-  args: any; // The input arguments that were passed to the tool
-};
-```
+| Property | Type     | Description                                      |
+| -------- | -------- | ------------------------------------------------ |
+| `name`   | `string` | The name of the executed tool                    |
+| `output` | `any`    | The output from the tool execution               |
+| `args`   | `any`    | The input arguments that were passed to the tool |
 
 This allows you to use switch statements with full TypeScript type checking:
 
@@ -161,6 +168,16 @@ switch (result.name) {
     return toolbox.assertExhaustive(result);
 }
 ```
+
+### ToolSet Type
+
+The AI-ready toolset used internally by language models for tool selection:
+
+| Property                 | Type                  | Description                                         |
+| ------------------------ | --------------------- | --------------------------------------------------- |
+| `[toolName]`             | `ToolDefinition`      | Tool definition object for each tool in the toolbox |
+| `[toolName].parameters`  | `any`                 | The schema of the input that the tool expects       |
+| `[toolName].description` | `string \| undefined` | Optional description of what the tool does          |
 
 ## Related
 
