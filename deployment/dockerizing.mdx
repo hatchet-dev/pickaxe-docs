@@ -1,0 +1,48 @@
+---
+title: "Dockerizing"
+description: "Dockerizing your Pickaxe application."
+icon: "docker"
+---
+
+Pickaxe is designed to easily be run in any container-based platform ([Hatchet Cloud](https://docs.hatchet.run/home/compute), [Railway](https://railway.app), [Fly.io](https://fly.io), [Porter](https://porter.run), [Kubernetes](https://kubernetes.io), [AWS ECS](https://aws.amazon.com/ecs), [GCP Cloud Run](https://cloud.google.com/run)).
+
+This guide explains how to create Dockerfiles for Pickaxe applications.
+
+## Entrypoint Configuration for Pickaxe
+
+Before creating your Dockerfile, understand that Pickaxe agents require specific entry point configuration:
+
+1. The entry point must run code that runs the Pickaxe agent. This can be done by calling the `pickaxe.start()` method in your respective SDK.
+2. Proper environment variables must be set for Pickaxe SDK. At a minimum, you will need to set the `HATCHET_CLIENT_TOKEN` environment variables.
+
+## Example Dockerfile
+
+```dockerfile
+# Stage 1: Build
+FROM node:22 AS builder
+
+WORKDIR /app
+
+COPY package\*.json ./
+
+RUN npm install
+
+COPY . .
+
+RUN npm run build
+
+# Stage 2: Production
+FROM node:22-alpine
+
+WORKDIR /app
+
+COPY package\*.json ./
+
+RUN npm install --omit=dev
+
+COPY --from=builder /app/dist ./dist
+
+ENV NODE_ENV=production
+
+CMD ["node", "dist/main.js"]
+```

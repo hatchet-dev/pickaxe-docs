@@ -28,7 +28,10 @@
           },
           {
             "group": "Development",
-            "pages": ["development/developing-agents"]
+            "pages": [
+              "development/project-structure-and-entrypoints",
+              "development/developing-agents"
+            ]
           },
           {
             "group": "Patterns",
@@ -43,7 +46,10 @@
           },
           {
             "group": "Deployment",
-            "pages": []
+            "pages": [
+              "deployment/dockerizing",
+              "deployment/scaling"
+            ]
           },
           {
             "group": "API Reference",
