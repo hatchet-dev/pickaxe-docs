@@ -7,24 +7,37 @@ This document is designed to be read by an LLM using the Pickaxe MCP server.
 
 # Creating an Agent
 
+If you ever run into issues or need more information while creating a Pickaxe agent, you can query https://pickaxe.hatchet.run/llms.txt for a full list of documentation pages available, which will help you understand the concepts and best practices for creating agents.
+
 ## Step 1: Planning
 
-Before creating an agent, you will need to figure out the agent's name and function, along with any tools it will use. Existing tools can be found in the `./src/tools` directory, or can be queried from the MCP server using the `list_tools` command. Existing agents can be found in the `./src/agents` directory, or can be queried from the MCP server using the `list_agents` command.
+Before creating an agent, you will need to figure out the agent's name and function, along with any tools it will use. Typically, existing agents can be found in `./src/agents` and existing tools can be found in `./src/tools`. A typical project structure is:
 
-When figuring out the agent's name and tool calls, consult the reference documentation on creating agents, which can be found in the following docs:
+```txt
+my-app/
+├── src/
+│   ├── agents/
+│   │   ├── simple.agent.ts
+│   │   └── index.ts
+│   ├── tools/
+│   │   ├── simple.tool.ts
+│   │   └── index.ts
+│   ├── main.ts
+│   ├── pickaxe.client.ts
+│   └── index.ts
+├── package.json
+└── tsconfig.json
+```
 
-- [Agents](https://pickaxe.hatchet.run/concepts/agents.md)
-- [Toolbox](https://pickaxe.hatchet.run/concepts/toolbox.md)
-- [Tools](https://pickaxe.hatchet.run/concepts/tools.md)
-- [Agent API Reference](https://pickaxe.hatchet.run/api-reference/agent.md)
-- [Tool API Reference](https://pickaxe.hatchet.run/api-reference/tool.md)
-- [Toolbox API Reference](https://pickaxe.hatchet.run/api-reference/toolbox.md)
+If you are not in a Typescript project already, you should initialize a new Typescript project and use that as the working directory.
 
-IMPORTANT: **make note of the best practices for agents, as this will inform the design of the tool calls**.
+If the `./src/agents` directory or the `./src/tools` directory does not exist, you can temporarily create it in order to scaffold the agent and tools using the `scaffold_agent` and `scaffold_tool` commands. If the codebase has a different convention for the file structure, you can copy the created files to the appropriate locations after scaffolding.
 
 ## Step 2: Creating Tools
 
-After figuring out the list of tools and agents you want to use, you should start by creating all tools and implement their business logic. To create a tool, you can use the Pickaxe MCP tool called `create_tool`. This creates a new tool with a specified name and description. This will create the boilerplate for a new tool in the `./src/tools` directory, but importantly, this will not implement the tool logic itself.
+After figuring out the list of tools and agents you want to use, you should start by creating new tools and implement their business logic, or modifying existing tools. To create a tool, you can use the Pickaxe MCP tool called `scaffold_tool`, which creates the boilerplate for a new tool in the `./src/tools` directory.
+
+This does not implement the tool logic itself, but it sets up the basic structure for the tool, including the input and output schemas, and a placeholder function where you can implement the tool logic. **You should implement the tool logic in the newly created tool file.**
 
 After tools have been created, make sure that they are resilient to failure and are set up to retry if they fail. Make special note of the execution and scheduling timeouts. If a tool takes a long time to execute, you may want to increase the timeout to avoid the tool being killed prematurely. The default timeout is 60 seconds.
 
@@ -34,7 +47,7 @@ Make sure that tools are thoroughly tested using the user's existing testing fra
 
 ## Step 3: Creating an Agent
 
-To create an agent, you can use the Pickaxe MCP tool called `create_agent`. This creates a new agent with a specified name and description. This will create the boilerplate for a new agent in the ./src/agents directory, but importantly, this will not implement the agent logic itself.
+To create an agent, you should first use the Pickaxe MCP tool called `scaffold_agent`. This creates the boilerplate for a new agent with a specified name and description in the `./src/agents` directory, but importantly, this does not implement the agent logic itself. You can run the command as follows:
 
 You will need to implement the agent logic in the newly created agent file. The agent should call the tools you created in Step 2, and should follow the best practices for agents outlined in the documentation.
 
