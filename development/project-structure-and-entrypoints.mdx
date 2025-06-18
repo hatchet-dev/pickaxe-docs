@@ -1,0 +1,70 @@
+---
+title: "Project Structure and Entrypoints"
+description: "Understanding the entrypoints of your Pickaxe application."
+---
+
+# Project Structure
+
+The recommended structure for a Pickaxe application is to have a single entrypoint that imports your agents and tools, and starts the Pickaxe client.
+
+```filesystem
+my-app/
+├── src/
+│   ├── agents/
+│   │   ├── simple.agent.ts
+│   │   └── index.ts
+│   ├── tools/
+│   │   ├── simple.tool.ts
+│   │   └── index.ts
+│   ├── main.ts
+│   ├── pickaxe.client.ts
+│   └── index.ts
+├── package.json
+└── tsconfig.json
+```
+
+# Entrypoints
+
+The minimal entrypoint for a Pickaxe application is a simple file that imports the `pickaxe` client, imports your agents and tools, and starts it.
+
+```typescript
+// my-app/src/main.ts
+import { pickaxe } from "@/pickaxe-client";
+
+// Import tools to ensure they get registered
+import "@/agents";
+import "@/tools";
+
+pickaxe.start();
+```
+
+## Automatic Registration
+
+In this example project, the `my-app/src/agents/index.ts`  and `my-app/src/tools/index.ts` are barrel files that imports all the agents and tools in the `my-app/src/agents` and `my-app/src/tools` directories respectively.
+
+```typescript
+// my-app/src/agents/index.ts
+export * from "./simple.agent";
+```
+
+As you add more agents, tools, and toolboxes, you can add them to the barrel files and they will be automatically registered with the Pickaxe client.
+
+
+### Manual registration
+
+For some more advanced use cases, you may want to manually register specific parts of your workload on multiple machines, for example cpu or memory bound work. For this you can use the `register` option on the `pickaxe.start` method.
+
+```typescript
+// my-app/src/simple-agent.main.ts
+import { pickaxe } from "@/pickaxe-client";
+import { simpleAgent } from "@/agents/simple.agent";
+
+pickaxe.start({
+    name: "simple-agent"
+    register: [
+        simpleAgent,
+    ]
+});
+```
+
+This is further documented in the [scaling](../deployment/scaling) documentation.
