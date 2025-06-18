@@ -37,7 +37,7 @@ export const myAgent = pickaxe.agent({
   inputSchema: z.object({ message: z.string() }),
   outputSchema: z.object({ response: z.string() }),
   fn: async (input, ctx) => {
-    const result = await myToolbox.pickAndRun(ctx, {
+    const result = await myToolbox.pickAndRun({
       prompt: input.message,
     });
 
@@ -60,7 +60,7 @@ export const myAgent = pickaxe.agent({
 Use `pick` to select tools without executing them, useful when you need to inspect the selection before execution:
 
 ```ts
-const selections = await myToolbox.pick(ctx, {
+const selections = await myToolbox.pick({
   prompt: "Calculate the square root of 16",
 });
 
@@ -73,7 +73,7 @@ console.log(selections); // [{ name: "calculatorTool", input: { operation: "sqrt
 Select and execute multiple tools by specifying `maxTools`:
 
 ```ts
-const results = await myToolbox.pickAndRun(ctx, {
+const results = await myToolbox.pickAndRun({
   prompt: "Process the data and then send a notification",
   maxTools: 2,
 });
@@ -95,7 +95,7 @@ export const smartAgent = pickaxe.agent({
   outputSchema: z.object({ result: z.string() }),
   fn: async (input, ctx) => {
     // The AI selects the appropriate tool for the task
-    const result = await myToolbox.pickAndRun(ctx, {
+    const result = await myToolbox.pickAndRun({
       prompt: `Help me with this task: ${input.task}`,
     });
 

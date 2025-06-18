@@ -9,27 +9,63 @@ The Pickaxe CLI is a command line interface for quickly getting started with Pic
 
 <Tabs>
   <Tab title="npm">
+  First, install the Pickaxe CLI:
     ```sh
     npm i -g @hatchet-dev/pickaxe-cli
+    ```
+
+    Then create a new agent:
+
+    ```sh
     pickaxe create my-agent
-    cd my-agent
+    ```
+
+    Then cd into the agent directory and install dependencies:
+
+    ```sh
+    cd my-agent && npm install
     ```
   </Tab>
   <Tab title="pnpm">
+    First, install the Pickaxe CLI:
+
     ```sh
     pnpm i -g @hatchet-dev/pickaxe-cli
+    ```
+
+    Then create a new agent:
+
+    ```sh
     pickaxe create my-agent
-    cd my-agent
+    ```
+
+    Then cd into the agent directory and install dependencies:
+
+    ```sh
+    cd my-agent && pnpm install
     ```
   </Tab>
   <Tab title="yarn">
+    First, install the Pickaxe CLI:
+  
     ```sh
     yarn global add @hatchet-dev/pickaxe-cli
+    ```
+
+    Then create a new agent:
+
+    ```sh
     pickaxe create my-agent
-    cd my-agent
+    ```
+
+    Then cd into the agent directory and install dependencies:
+
+    ```sh
+    cd my-agent && yarn install
     ```
   </Tab>
 </Tabs>
+
 
 ### Generate a Hatchet API token
 
@@ -73,7 +109,7 @@ To start your agent, you can run the following:
   </Tab>
 </Tabs>
 
-To trigger the agent, you can run:
+To trigger the agent, in a separate terminal you can run:
 
 <Tabs>
   <Tab title="npm">

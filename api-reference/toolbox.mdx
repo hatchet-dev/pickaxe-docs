@@ -34,7 +34,7 @@ export const myAgent = pickaxe.agent({
   outputSchema: z.object({ message: z.string() }),
   description: "An agent that uses tools from a toolbox",
   fn: async (input, ctx) => {
-    const result = await myToolbox.pickAndRun(ctx, {
+    const result = await myToolbox.pickAndRun({
       prompt: input.message,
     });
 
@@ -90,7 +90,7 @@ Uses the language model to choose up to `maxTools` tools from this toolbox that 
 
 **Returns:** `Promise<Array<{ name: string, input: any }>>` - Array containing chosen tool names with generated input arguments
 
-#### `pickAndRun(ctx, options)`
+#### `pickAndRun(options)`
 
 Convenience method that first runs [`pick()`](#pickctx-options) and then immediately executes the chosen tool(s).
 
@@ -146,7 +146,7 @@ type ToolResultMap<T> = {
 This allows you to use switch statements with full TypeScript type checking:
 
 ```typescript
-const result = await toolbox.pickAndRun(ctx, { prompt: "Do something" });
+const result = await toolbox.pickAndRun({ prompt: "Do something" });
 
 switch (result.name) {
   case "myTool":
