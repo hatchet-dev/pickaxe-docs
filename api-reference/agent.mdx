@@ -42,7 +42,7 @@ export const myAgent = pickaxe.agent({
   outputSchema: MyAgentOutput,
   description: "Description of what this agent does",
   fn: async (input, ctx) => {
-    const result = await myToolbox.pickAndRun(ctx, {
+    const result = await myToolbox.pickAndRun({
       prompt: input.message,
     });
 
