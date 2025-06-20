@@ -1,0 +1,266 @@
+---
+title: "Next.js Integration"
+description: "How to integrate Pickaxe agents with Next.js applications"
+icon: "RiNextjsFill"
+---
+
+Learn how to integrate Pickaxe agents into your Next.js application for seamless AI-powered functionality.
+
+## Installation
+
+First, install the Pickaxe SDK:
+
+```bash
+npm install @hatchet-dev/pickaxe
+```
+
+## Basic Setup
+
+Create your agent in a separate file (e.g., `lib/agents/my-agent.ts`):
+
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+
+const MyAgentInput = z.object({
+  message: z.string(),
+});
+
+const MyAgentOutput = z.object({
+  response: z.string(),
+});
+
+export const myAgent = pickaxe.agent({
+  name: "my-nextjs-agent",
+  description: "Agent for Next.js application",
+  inputSchema: MyAgentInput,
+  outputSchema: MyAgentOutput,
+  fn: async (input, ctx) => {
+    // Your agent logic here
+    return {
+      response: `Processed: ${input.message}`,
+    };
+  },
+});
+```
+
+## API Routes Integration
+
+Create an API route to handle agent execution (`pages/api/agent.ts` or `app/api/agent/route.ts`):
+
+### Pages Router
+
+```typescript
+// pages/api/agent.ts
+import { NextApiRequest, NextApiResponse } from 'next';
+import { myAgent } from '../../lib/agents/my-agent';
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    const { message } = req.body;
+    
+    const result = await myAgent.run({
+      message,
+    });
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Agent execution failed:', error);
+    res.status(500).json({ error: 'Agent execution failed' });
+  }
+}
+```
+
+### App Router
+
+```typescript
+// app/api/agent/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { myAgent } from '@/agents/my-agent';
+
+export async function POST(request: NextRequest) {
+  try {
+    const { message } = await request.json();
+    
+    const result = await myAgent.run({
+      message,
+    });
+
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error('Agent execution failed:', error);
+    return NextResponse.json(
+      { error: 'Agent execution failed' },
+      { status: 500 }
+    );
+  }
+}
+```
+
+## Client-Side Usage
+
+Use the agent from your React components:
+
+```typescript
+'use client'; // For App Router
+
+import { useState } from 'react';
+
+export default function AgentDemo() {
+  const [message, setMessage] = useState('');
+  const [response, setResponse] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/agent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message }),
+      });
+
+      const data = await res.json();
+      setResponse(data.response);
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      <form onSubmit={handleSubmit}>
+        <input
+          type="text"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="Enter your message"
+          disabled={loading}
+        />
+        <button type="submit" disabled={loading}>
+          {loading ? 'Processing...' : 'Send'}
+        </button>
+      </form>
+      {response && (
+        <div>
+          <h3>Response:</h3>
+          <p>{response}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## Server Actions (App Router)
+
+For App Router, you can also use Server Actions:
+
+```typescript
+// app/actions.ts
+'use server';
+
+import { myAgent } from '../lib/agents/my-agent';
+
+export async function runAgent(message: string) {
+  try {
+    const result = await myAgent.run({
+      message,
+    });
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: 'Agent execution failed' };
+  }
+}
+```
+
+Then use it in your component:
+
+```typescript
+// app/components/AgentForm.tsx
+'use client';
+
+import { runAgent } from '../actions';
+import { useState, useTransition } from 'react';
+
+export default function AgentForm() {
+  const [isPending, startTransition] = useTransition();
+  const [result, setResult] = useState<string>('');
+
+  const handleSubmit = async (formData: FormData) => {
+    const message = formData.get('message') as string;
+    
+    startTransition(async () => {
+      const response = await runAgent(message);
+      if (response.success) {
+        setResult(response.data.response);
+      } else {
+        console.error(response.error);
+      }
+    });
+  };
+
+  return (
+    <form action={handleSubmit}>
+      <input name="message" placeholder="Enter your message" required />
+      <button type="submit" disabled={isPending}>
+        {isPending ? 'Processing...' : 'Send'}
+      </button>
+      {result && <p>Response: {result}</p>}
+    </form>
+  );
+}
+```
+
+## Environment Configuration
+
+Add your Hatchet configuration to `.env.local`:
+
+```env
+HATCHET_CLIENT_TOKEN=your_token_here
+HATCHET_SERVER_URL=https://app.hatchet.run
+```
+
+Initialize Hatchet in your application:
+
+```typescript
+// lib/hatchet.ts
+import { Hatchet } from "@hatchet-dev/typescript-sdk";
+import { myAgent } from "./agents/my-agent";
+
+const hatchet = Hatchet.init({
+  token: process.env.HATCHET_CLIENT_TOKEN!,
+  serverUrl: process.env.HATCHET_SERVER_URL,
+});
+
+hatchet.registerWorkflows([myAgent]);
+
+export { hatchet };
+```
+
+## Best Practices
+
+1. **Separate agent logic**: Keep your agents in separate files under `lib/agents/`
+2. **Error handling**: Always wrap agent calls in try-catch blocks
+3. **Environment variables**: Store sensitive configuration in environment variables
+4. **Type safety**: Use TypeScript with proper input/output schemas
+5. **Loading states**: Provide feedback to users during agent execution
+
+## Deployment
+
+When deploying to Vercel or other platforms, ensure your environment variables are configured and your agent workflows are properly registered.
+
+For serverless deployments, consider using `runNoWait()` for long-running agents and add a get endpoint to subscribe to the result to avoid timeout issues.

@@ -34,6 +34,13 @@
             ]
           },
           {
+            "group": "Adding to Your Codebase",
+            "pages": [
+              "integrations/nextjs",
+              "integrations/nestjs"
+            ]
+          },
+          {
             "group": "Patterns",
             "pages": [
               "patterns/prompt-chaining",
@@ -99,6 +106,10 @@
   },
   "navbar": {
     "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/hatchet-dev/pickaxe"
+      },
       {
         "label": "Support",
         "href": "https://hatchet.run/discord"

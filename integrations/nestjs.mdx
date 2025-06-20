@@ -1,0 +1,391 @@
+---
+title: "NestJS Integration"
+description: "How to integrate Pickaxe agents with NestJS applications"
+icon: "RiNestjsFill"
+---
+
+Learn how to integrate Pickaxe agents into your NestJS application using dependency injection and decorators.
+
+## Installation
+
+Install the Pickaxe SDK and required dependencies:
+
+```bash
+npm install @hatchet-dev/pickaxe
+npm install @nestjs/config # For environment configuration
+```
+
+## Agent Setup
+
+Create your agent definition (`src/agents/my-agent.ts`):
+
+```typescript
+import { pickaxe } from "@hatchet-dev/pickaxe";
+import z from "zod";
+
+const MyAgentInput = z.object({
+  message: z.string(),
+  userId: z.string().optional(),
+});
+
+const MyAgentOutput = z.object({
+  response: z.string(),
+  processedAt: z.string(),
+});
+
+export const myAgent = pickaxe.agent({
+  name: "my-nestjs-agent",
+  description: "Agent for NestJS application",
+  inputSchema: MyAgentInput,
+  outputSchema: MyAgentOutput,
+  executionTimeout: "5m",
+  fn: async (input, ctx) => {
+    ctx.logger.info(`Processing message for user: ${input.userId}`);
+    
+    // Your agent logic here
+    return {
+      response: `Processed: ${input.message}`,
+      processedAt: new Date().toISOString(),
+    };
+  },
+});
+```
+
+## Service Integration
+
+Create a service to handle agent operations (`src/agents/agent.service.ts`):
+
+```typescript
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Hatchet } from '@hatchet-dev/typescript-sdk';
+import { myAgent } from '@/agents/my-agent';
+
+@Injectable()
+export class AgentService implements OnModuleInit {
+  private readonly logger = new Logger(AgentService.name);
+  private hatchet: Hatchet;
+
+  constructor(private configService: ConfigService) {}
+
+  async onModuleInit() {
+    try {
+      this.hatchet = Hatchet.init({
+        token: this.configService.get<string>('HATCHET_CLIENT_TOKEN'),
+        serverUrl: this.configService.get<string>('HATCHET_SERVER_URL'),
+      });
+
+      await this.hatchet.registerWorkflows([myAgent]);
+      this.logger.log('Hatchet workflows registered successfully');
+    } catch (error) {
+      this.logger.error('Failed to initialize Hatchet', error);
+      throw error;
+    }
+  }
+
+  async runAgent(input: { message: string; userId?: string }) {
+    try {
+      this.logger.log(`Running agent with input: ${JSON.stringify(input)}`);
+      
+      const result = await myAgent.run(input);
+      
+      this.logger.log(`Agent completed successfully`);
+      return result;
+    } catch (error) {
+      this.logger.error('Agent execution failed', error);
+      throw new Error('Agent execution failed');
+    }
+  }
+
+  async runAgentAsync(input: { message: string; userId?: string }) {
+    try {
+      this.logger.log(`Starting async agent with input: ${JSON.stringify(input)}`);
+      
+      const workflowRef = await myAgent.runNoWait(input);
+      
+      this.logger.log(`Agent started with run ID: ${workflowRef.runId}`);
+      return { runId: workflowRef.runId };
+    } catch (error) {
+      this.logger.error('Failed to start agent', error);
+      throw new Error('Failed to start agent');
+    }
+  }
+
+  async getAgentResult(runId: string) {
+    try {
+      // Implementation depends on your Hatchet client setup
+      // This is a placeholder for getting results by run ID
+      this.logger.log(`Getting result for run ID: ${runId}`);
+      
+      // You would implement this based on your Hatchet client
+      // return await this.hatchet.getWorkflowResult(runId);
+      
+      throw new Error('Method not implemented');
+    } catch (error) {
+      this.logger.error('Failed to get agent result', error);
+      throw new Error('Failed to get agent result');
+    }
+  }
+}
+```
+
+## Controller Implementation
+
+Create a controller to expose agent endpoints (`src/agents/agent.controller.ts`):
+
+```typescript
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Param,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
+import { AgentService } from './agent.service';
+
+export class RunAgentDto {
+  message: string;
+  userId?: string;
+}
+
+export class AgentResponse {
+  response: string;
+  processedAt: string;
+}
+
+export class AsyncAgentResponse {
+  runId: string;
+}
+
+@Controller('agents')
+export class AgentController {
+  private readonly logger = new Logger(AgentController.name);
+
+  constructor(private readonly agentService: AgentService) {}
+
+  @Post('run')
+  async runAgent(@Body() dto: RunAgentDto): Promise<AgentResponse> {
+    try {
+      this.logger.log(`Running agent for message: ${dto.message}`);
+      
+      const result = await this.agentService.runAgent({
+        message: dto.message,
+        userId: dto.userId,
+      });
+
+      return result;
+    } catch (error) {
+      this.logger.error('Agent execution failed', error);
+      throw new HttpException(
+        'Agent execution failed',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post('run-async')
+  async runAgentAsync(@Body() dto: RunAgentDto): Promise<AsyncAgentResponse> {
+    try {
+      this.logger.log(`Starting async agent for message: ${dto.message}`);
+      
+      const result = await this.agentService.runAgentAsync({
+        message: dto.message,
+        userId: dto.userId,
+      });
+
+      return result;
+    } catch (error) {
+      this.logger.error('Failed to start agent', error);
+      throw new HttpException(
+        'Failed to start agent',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get('result/:runId')
+  async getAgentResult(@Param('runId') runId: string) {
+    try {
+      this.logger.log(`Getting result for run ID: ${runId}`);
+      
+      const result = await this.agentService.getAgentResult(runId);
+      return result;
+    } catch (error) {
+      this.logger.error('Failed to get agent result', error);
+      throw new HttpException(
+        'Failed to get agent result',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+}
+```
+
+## Module Configuration
+
+Create and configure the agent module (`src/agents/agent.module.ts`):
+
+```typescript
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { AgentService } from './agent.service';
+import { AgentController } from './agent.controller';
+
+@Module({
+  imports: [ConfigModule],
+  controllers: [AgentController],
+  providers: [AgentService],
+  exports: [AgentService],
+})
+export class AgentModule {}
+```
+
+Update your main app module (`src/app.module.ts`):
+
+```typescript
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { AgentModule } from './agents/agent.module';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    AgentModule,
+  ],
+})
+export class AppModule {}
+```
+
+## Environment Configuration
+
+Configure your environment variables (`.env`):
+
+```env
+HATCHET_CLIENT_TOKEN=your_token_here
+HATCHET_SERVER_URL=https://app.hatchet.run
+```
+
+## Advanced Usage
+
+### Using Guards and Interceptors
+
+Add authentication and logging:
+
+```typescript
+import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { UseGuards, UseInterceptors } from '@nestjs/common';
+
+@Injectable()
+export class AuthGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    // Your authentication logic
+    const request = context.switchToHttp().getRequest();
+    return !!request.headers.authorization;
+  }
+}
+
+@Controller('agents')
+@UseGuards(AuthGuard)
+export class AgentController {
+  // Your controller methods
+}
+```
+
+### Background Processing with Queues
+
+For production use, consider integrating with Bull Queue:
+
+```bash
+npm install @nestjs/bull bull
+npm install @types/bull
+```
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
+
+@Injectable()
+export class AgentQueueService {
+  constructor(@InjectQueue('agent') private agentQueue: Queue) {}
+
+  async queueAgentRun(data: { message: string; userId?: string }) {
+    const job = await this.agentQueue.add('run-agent', data, {
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 2000,
+      },
+    });
+
+    return { jobId: job.id };
+  }
+}
+```
+
+## Testing
+
+Create unit tests for your agent service:
+
+```typescript
+import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
+import { AgentService } from './agent.service';
+
+describe('AgentService', () => {
+  let service: AgentService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AgentService,
+        {
+          provide: ConfigService,
+          useValue: {
+            get: jest.fn((key: string) => {
+              const config = {
+                HATCHET_CLIENT_TOKEN: 'test-token',
+                HATCHET_SERVER_URL: 'http://test-url',
+              };
+              return config[key];
+            }),
+          },
+        },
+      ],
+    }).compile();
+
+    service = module.get<AgentService>(AgentService);
+  });
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+
+  // Add more tests here
+});
+```
+
+## Best Practices
+
+1. **Dependency Injection**: Use NestJS DI system for managing agent services
+2. **Configuration Management**: Use ConfigModule for environment variables
+3. **Error Handling**: Implement proper error handling with HTTP exceptions
+4. **Logging**: Use NestJS Logger for structured logging
+5. **Validation**: Use DTOs with class-validator for input validation
+6. **Testing**: Write comprehensive unit and integration tests
+7. **Background Processing**: Consider using queues for long-running agents
+
+## Deployment
+
+For production deployment:
+
+1. Set proper environment variables
+2. Configure health checks
+3. Implement proper error monitoring
+4. Use PM2 or similar for process management
+5. Consider using Docker for containerization
