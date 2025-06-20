@@ -84,6 +84,11 @@
           "anchor": "Hatchet",
           "href": "https://hatchet.run",
           "icon": "axe"
+        },
+        {
+          "anchor": "Office Hours",
+          "href": "https://cal.com/team/hatchet/office-hours",
+          "icon": "calendar"
         }
       ]
     }
