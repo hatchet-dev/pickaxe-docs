@@ -1,7 +1,6 @@
 ---
 title: "NestJS Integration"
 description: "How to integrate Pickaxe agents with NestJS applications"
-icon: "RiNestjsFill"
 ---
 
 Learn how to integrate Pickaxe agents into your NestJS application using dependency injection and decorators.
@@ -369,23 +368,3 @@ describe('AgentService', () => {
   // Add more tests here
 });
 ```
-
-## Best Practices
-
-1. **Dependency Injection**: Use NestJS DI system for managing agent services
-2. **Configuration Management**: Use ConfigModule for environment variables
-3. **Error Handling**: Implement proper error handling with HTTP exceptions
-4. **Logging**: Use NestJS Logger for structured logging
-5. **Validation**: Use DTOs with class-validator for input validation
-6. **Testing**: Write comprehensive unit and integration tests
-7. **Background Processing**: Consider using queues for long-running agents
-
-## Deployment
-
-For production deployment:
-
-1. Set proper environment variables
-2. Configure health checks
-3. Implement proper error monitoring
-4. Use PM2 or similar for process management
-5. Consider using Docker for containerization
